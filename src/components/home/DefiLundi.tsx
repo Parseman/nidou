@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Trophy, X, Plus, Camera, Check } from 'lucide-react'
+import { Trophy, X, Plus, Camera, Check, ThumbsUp, ThumbsDown } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../../lib/supabase'
+
+type Difficulty = 'easy' | 'medium' | 'hard' | 'legendary'
 
 type Challenge = {
   id: string
@@ -10,20 +12,42 @@ type Challenge = {
   creator_name: string | null
   title: string
   description: string | null
-  status: 'pending' | 'completed'
+  difficulty: Difficulty | null
+  status: 'pending' | 'proof_submitted' | 'validated' | 'rejected' | 'completed'
   proof_url: string | null
   completed_by: string | null
   completer_name: string | null
   completed_at: string | null
+  deadline: string | null
+  validated: boolean | null
+  validated_at: string | null
+  validated_by: string | null
+  validator_name: string | null
   created_at: string
 }
 
+const DIFFS = [
+  { key: 'easy' as Difficulty,      label: 'Facile',      textColor: 'text-green-600',  bg: 'bg-green-50',  border: 'border-green-300',  badge: 'bg-green-100 text-green-700' },
+  { key: 'medium' as Difficulty,    label: 'Moyen',       textColor: 'text-blue-600',   bg: 'bg-blue-50',   border: 'border-blue-300',   badge: 'bg-blue-100 text-blue-700' },
+  { key: 'hard' as Difficulty,      label: 'Dur',         textColor: 'text-violet-600', bg: 'bg-violet-50', border: 'border-violet-300', badge: 'bg-violet-100 text-violet-700' },
+  { key: 'legendary' as Difficulty, label: 'Légendaire',  textColor: 'text-orange-500', bg: 'bg-orange-50', border: 'border-orange-300', badge: 'bg-gradient-to-r from-yellow-100 to-orange-100 text-orange-600' },
+]
+
+function getDiff(key: Difficulty | null) {
+  return DIFFS.find((d) => d.key === key) ?? DIFFS[1]
+}
+
+function getNextMonday(): Date {
+  const d = new Date()
+  const day = d.getDay()
+  const diff = day === 0 ? 1 : day === 1 ? 7 : 8 - day
+  d.setDate(d.getDate() + diff)
+  d.setHours(23, 59, 59, 0)
+  return d
+}
+
 function fmtDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('fr-FR', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  })
+  return new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
 export function DefiLundi({ user }: { user: User }) {
@@ -33,23 +57,52 @@ export function DefiLundi({ user }: { user: User }) {
   const [creating, setCreating] = useState(false)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
+  const [difficulty, setDifficulty] = useState<Difficulty>('medium')
   const [submitting, setSubmitting] = useState(false)
   const [uploadPreview, setUploadPreview] = useState<string | null>(null)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
+  const [validating, setValidating] = useState(false)
   const [lightbox, setLightbox] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const senderName =
-    user.user_metadata?.first_name ?? user.email?.split('@')[0] ?? null
+  const senderName = user.user_metadata?.first_name ?? user.email?.split('@')[0] ?? null
+  const isMonday = new Date().getDay() === 1
 
-  const fetchChallenges = () =>
-    supabase
+  const fetchChallenges = async () => {
+    const { data } = await supabase
       .from('challenges')
       .select('*')
       .order('created_at', { ascending: false })
       .limit(50)
-      .then(({ data }) => setChallenges(data ?? []))
+
+    const rows = (data ?? []) as Challenge[]
+
+    // Auto-valider les défis dont la preuve est soumise et la deadline dépassée
+    const expired = rows.filter(
+      (c) => c.status === 'proof_submitted' && c.deadline && new Date(c.deadline) < new Date()
+    )
+    if (expired.length > 0) {
+      await Promise.all(
+        expired.map((c) =>
+          supabase.from('challenges').update({
+            status: 'validated',
+            validated: true,
+            validated_at: new Date().toISOString(),
+          }).eq('id', c.id)
+        )
+      )
+      const { data: fresh } = await supabase
+        .from('challenges')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(50)
+      setChallenges((fresh ?? []) as Challenge[])
+      return
+    }
+
+    setChallenges(rows)
+  }
 
   useEffect(() => {
     fetchChallenges().then(() => setLoaded(true))
@@ -62,21 +115,31 @@ export function DefiLundi({ user }: { user: User }) {
     return () => { supabase.removeChannel(channel) }
   }, [])
 
-  const active = challenges.find((c) => c.status === 'pending') ?? null
-  const history = challenges.filter((c) => c.status === 'completed')
-  const iMadeCurrent = active?.created_by === user.id
+  const active = challenges.find(
+    (c) => c.status === 'pending' || c.status === 'proof_submitted'
+  ) ?? null
+
+  const history = challenges.filter(
+    (c) => c.status === 'validated' || c.status === 'rejected' || c.status === 'completed'
+  )
+
+  const iMadeActive = active?.created_by === user.id
+  const isProofPhase = active?.status === 'proof_submitted'
 
   const createChallenge = async () => {
-    if (!title.trim() || submitting) return
+    if (!title.trim() || submitting || !isMonday) return
     setSubmitting(true)
     await supabase.from('challenges').insert({
       created_by: user.id,
       creator_name: senderName,
       title: title.trim(),
       description: description.trim() || null,
+      difficulty,
+      deadline: getNextMonday().toISOString(),
     })
     setTitle('')
     setDescription('')
+    setDifficulty('medium')
     setCreating(false)
     setSubmitting(false)
   }
@@ -101,17 +164,35 @@ export function DefiLundi({ user }: { user: User }) {
       await supabase
         .from('challenges')
         .update({
-          status: 'completed',
+          status: 'proof_submitted',
           proof_url: publicUrl,
           completed_by: user.id,
           completer_name: senderName,
           completed_at: new Date().toISOString(),
+          // Si pas de deadline (défi ancien), on en crée une à partir de maintenant
+          deadline: active.deadline ?? getNextMonday().toISOString(),
         })
         .eq('id', active.id)
     }
     setSelectedFile(null)
     setUploadPreview(null)
     setUploading(false)
+  }
+
+  const validateChallenge = async (accept: boolean) => {
+    if (!active || validating) return
+    setValidating(true)
+    await supabase
+      .from('challenges')
+      .update({
+        status: accept ? 'validated' : 'rejected',
+        validated: accept,
+        validated_at: new Date().toISOString(),
+        validated_by: user.id,
+        validator_name: senderName,
+      })
+      .eq('id', active.id)
+    setValidating(false)
   }
 
   const cancelUpload = () => {
@@ -146,18 +227,21 @@ export function DefiLundi({ user }: { user: User }) {
         {loaded && (
           active ? (
             <div>
-              <p className="text-pink-700 text-sm font-medium line-clamp-1 mb-1">
-                {active.title}
-              </p>
+              {active.difficulty && (
+                <span className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full mb-2 ${getDiff(active.difficulty).badge}`}>
+                  {getDiff(active.difficulty).label}
+                </span>
+              )}
+              <p className="text-pink-700 text-sm font-medium line-clamp-1 mb-1">{active.title}</p>
               <p className="text-pink-400 text-xs">
-                {iMadeCurrent ? '⏳ En attente de validation' : '🎯 À toi de relever !'}
+                {isProofPhase
+                  ? (iMadeActive ? '📸 Preuve soumise — à valider' : '⏳ En attente de validation')
+                  : (iMadeActive ? '⏳ En attente de réalisation' : '🎯 À toi de relever !')}
               </p>
             </div>
           ) : (
             <p className="text-pink-400 text-sm">
-              {history.length > 0
-                ? 'Aucun défi en cours — lancer le prochain →'
-                : 'Lancer votre premier défi →'}
+              {history.length > 0 ? 'Aucun défi en cours →' : 'Lancer votre premier défi →'}
             </p>
           )
         )}
@@ -218,23 +302,97 @@ export function DefiLundi({ user }: { user: User }) {
 
                   {active ? (
                     <div className="space-y-3">
-                      <div className="bg-gradient-to-br from-pink-50 to-violet-50 rounded-2xl p-4">
-                        <p className="font-bold text-pink-800 text-base mb-1">{active.title}</p>
+                      {/* Carte du défi */}
+                      <div className={`rounded-2xl p-4 ${active.difficulty ? getDiff(active.difficulty).bg : 'bg-gradient-to-br from-pink-50 to-violet-50'}`}>
+                        <div className="flex items-start justify-between gap-2 mb-1">
+                          <p className="font-bold text-pink-800 text-base">{active.title}</p>
+                          {active.difficulty && (
+                            <span className={`shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full ${getDiff(active.difficulty).badge}`}>
+                              {getDiff(active.difficulty).label}
+                            </span>
+                          )}
+                        </div>
                         {active.description && (
-                          <p className="text-pink-600 text-sm leading-relaxed">{active.description}</p>
+                          <p className="text-pink-600 text-sm leading-relaxed mb-2">{active.description}</p>
                         )}
-                        <p className="text-pink-300 text-xs mt-2">
-                          Lancé par {active.creator_name ?? 'inconnu'} · {fmtDate(active.created_at)}
-                        </p>
+                        <div className="flex flex-wrap gap-x-3 text-xs text-pink-300">
+                          <span>Lancé par {active.creator_name ?? 'inconnu'}</span>
+                          {active.deadline && <span>· Jusqu'au {fmtDate(active.deadline)}</span>}
+                        </div>
                       </div>
 
-                      {/* Recipient: upload proof */}
-                      {!iMadeCurrent && (
+                      {/* Phase preuve : créateur valide */}
+                      {isProofPhase && iMadeActive && (
+                        <div className="space-y-3">
+                          <p className="text-pink-600 text-sm font-medium">
+                            📸 Preuve reçue de {active.completer_name ?? 'ton partenaire'} :
+                          </p>
+                          {active.proof_url && (
+                            <button
+                              onClick={() => setLightbox(active.proof_url!)}
+                              className="w-full focus:outline-none"
+                            >
+                              <img
+                                src={active.proof_url}
+                                alt="Preuve"
+                                className="w-full h-44 object-cover rounded-2xl cursor-zoom-in hover:opacity-90 transition-opacity"
+                              />
+                            </button>
+                          )}
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => validateChallenge(true)}
+                              disabled={validating}
+                              className="flex-1 flex items-center justify-center gap-1.5
+                                         bg-green-500 hover:bg-green-600 text-white
+                                         text-sm font-semibold py-2.5 px-4 rounded-2xl
+                                         transition-colors cursor-pointer disabled:opacity-60"
+                            >
+                              <ThumbsUp size={14} />
+                              Valider
+                            </button>
+                            <button
+                              onClick={() => validateChallenge(false)}
+                              disabled={validating}
+                              className="flex-1 flex items-center justify-center gap-1.5
+                                         bg-red-400 hover:bg-red-500 text-white
+                                         text-sm font-semibold py-2.5 px-4 rounded-2xl
+                                         transition-colors cursor-pointer disabled:opacity-60"
+                            >
+                              <ThumbsDown size={14} />
+                              Refuser
+                            </button>
+                          </div>
+                          {active.deadline && (
+                            <p className="text-pink-300 text-xs text-center">
+                              Valide avant le {fmtDate(active.deadline)}, sinon validé automatiquement
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Phase preuve : compléteur en attente */}
+                      {isProofPhase && !iMadeActive && (
+                        <div className="text-center py-3 space-y-2">
+                          <p className="text-pink-500 text-sm">⏳ Preuve envoyée ! En attente de validation…</p>
+                          {active.proof_url && (
+                            <button onClick={() => setLightbox(active.proof_url!)} className="focus:outline-none">
+                              <img
+                                src={active.proof_url}
+                                alt="Ta preuve"
+                                className="h-28 object-cover rounded-xl mx-auto cursor-zoom-in hover:opacity-90 transition-opacity"
+                              />
+                            </button>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Phase pending : destinataire envoie la preuve */}
+                      {!isProofPhase && !iMadeActive && (
                         <div className="space-y-3">
                           <p className="text-pink-600 text-sm font-medium">
                             🎯 C'est ton défi ! Uploade ta photo preuve :
                           </p>
-
                           {uploadPreview ? (
                             <div className="space-y-2">
                               <img
@@ -249,7 +407,7 @@ export function DefiLundi({ user }: { user: User }) {
                                   className="btn-primary flex items-center gap-1.5 text-sm px-4 py-2"
                                 >
                                   <Check size={14} />
-                                  {uploading ? 'Envoi…' : 'Valider le défi'}
+                                  {uploading ? 'Envoi…' : 'Envoyer la preuve'}
                                 </button>
                                 <button
                                   onClick={cancelUpload}
@@ -270,7 +428,6 @@ export function DefiLundi({ user }: { user: User }) {
                               <span className="text-sm">Choisir une photo</span>
                             </button>
                           )}
-
                           <input
                             ref={fileInputRef}
                             type="file"
@@ -281,30 +438,41 @@ export function DefiLundi({ user }: { user: User }) {
                         </div>
                       )}
 
-                      {/* Creator: waiting */}
-                      {iMadeCurrent && (
+                      {/* Phase pending : créateur en attente */}
+                      {!isProofPhase && iMadeActive && (
                         <p className="text-pink-400 text-sm">
                           ⏳ En attente que ton partenaire relève le défi…
                         </p>
                       )}
                     </div>
+
                   ) : (
-                    /* No active challenge: create form */
+                    /* Pas de défi actif */
                     !creating ? (
-                      <button
-                        onClick={() => setCreating(true)}
-                        className="w-full flex items-center justify-center gap-2 border-2 border-dashed
-                                   border-pink-200 rounded-2xl py-6 text-pink-400
-                                   hover:border-pink-400 hover:text-pink-600 transition-colors cursor-pointer"
-                      >
-                        <Plus size={18} />
-                        <span className="text-sm font-medium">Lancer un nouveau défi</span>
-                      </button>
+                      isMonday ? (
+                        <button
+                          onClick={() => setCreating(true)}
+                          className="w-full flex items-center justify-center gap-2 border-2 border-dashed
+                                     border-pink-200 rounded-2xl py-6 text-pink-400
+                                     hover:border-pink-400 hover:text-pink-600 transition-colors cursor-pointer"
+                        >
+                          <Plus size={18} />
+                          <span className="text-sm font-medium">Lancer un nouveau défi</span>
+                        </button>
+                      ) : (
+                        <div className="text-center py-6 px-4">
+                          <p className="text-4xl mb-3">📅</p>
+                          <p className="text-pink-600 text-sm font-medium mb-1">Rendez-vous lundi !</p>
+                          <p className="text-pink-400 text-xs leading-relaxed">
+                            Les défis ne peuvent être lancés que le lundi.
+                          </p>
+                        </div>
+                      )
                     ) : (
                       <motion.div
                         initial={{ opacity: 0, y: 8 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="space-y-3"
+                        className="space-y-4"
                       >
                         <div>
                           <label className="block text-xs font-semibold text-pink-600 mb-1.5">
@@ -331,6 +499,26 @@ export function DefiLundi({ user }: { user: User }) {
                             rows={2}
                           />
                         </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-pink-600 mb-2">
+                            Difficulté
+                          </label>
+                          <div className="grid grid-cols-2 gap-2">
+                            {DIFFS.map((d) => (
+                              <button
+                                key={d.key}
+                                onClick={() => setDifficulty(d.key)}
+                                className={`py-2 px-3 rounded-xl text-sm font-semibold border-2 transition-all cursor-pointer
+                                  ${difficulty === d.key
+                                    ? `${d.bg} ${d.border} ${d.textColor}`
+                                    : 'bg-white border-pink-100 text-pink-300 hover:border-pink-200'
+                                  }`}
+                              >
+                                {d.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
                         <div className="flex gap-2">
                           <button
                             onClick={createChallenge}
@@ -341,7 +529,7 @@ export function DefiLundi({ user }: { user: User }) {
                             {submitting ? 'Envoi…' : 'Lancer le défi'}
                           </button>
                           <button
-                            onClick={() => { setCreating(false); setTitle(''); setDescription('') }}
+                            onClick={() => { setCreating(false); setTitle(''); setDescription(''); setDifficulty('medium') }}
                             className="text-sm text-pink-400 hover:text-pink-600 transition-colors cursor-pointer px-3"
                           >
                             Annuler
@@ -359,43 +547,52 @@ export function DefiLundi({ user }: { user: User }) {
                       Historique ({history.length})
                     </p>
                     <div className="space-y-4">
-                      {history.map((c) => (
-                        <motion.div
-                          key={c.id}
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          className="flex gap-3 items-start"
-                        >
-                          {c.proof_url ? (
-                            <button
-                              onClick={() => setLightbox(c.proof_url!)}
-                              className="shrink-0 focus:outline-none"
-                              aria-label="Voir la photo preuve"
-                            >
-                              <img
-                                src={c.proof_url}
-                                alt="Preuve"
-                                className="w-16 h-16 object-cover rounded-xl hover:opacity-80 transition-opacity cursor-zoom-in"
-                              />
-                            </button>
-                          ) : (
-                            <div className="w-16 h-16 rounded-xl bg-pink-50 shrink-0 flex items-center justify-center">
-                              <Trophy size={20} className="text-pink-200" />
+                      {history.map((c) => {
+                        const isValidated = c.status === 'validated' || c.status === 'completed' || c.validated === true
+                        const hDiff = getDiff(c.difficulty)
+                        return (
+                          <motion.div
+                            key={c.id}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            className="flex gap-3 items-start"
+                          >
+                            {c.proof_url ? (
+                              <button
+                                onClick={() => setLightbox(c.proof_url!)}
+                                className="shrink-0 focus:outline-none"
+                                aria-label="Voir la photo preuve"
+                              >
+                                <img
+                                  src={c.proof_url}
+                                  alt="Preuve"
+                                  className="w-16 h-16 object-cover rounded-xl hover:opacity-80 transition-opacity cursor-zoom-in"
+                                />
+                              </button>
+                            ) : (
+                              <div className="w-16 h-16 rounded-xl bg-pink-50 shrink-0 flex items-center justify-center">
+                                <Trophy size={20} className="text-pink-200" />
+                              </div>
+                            )}
+                            <div className="flex-1 min-w-0 pt-0.5">
+                              <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
+                                <p className="font-semibold text-pink-800 text-sm leading-snug">{c.title}</p>
+                                {c.difficulty && (
+                                  <span className={`text-xs font-semibold px-1.5 py-0.5 rounded-full ${hDiff.badge}`}>
+                                    {hDiff.label}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-pink-400 text-xs">
+                                {isValidated ? '✅ Validé' : '❌ Refusé'} · {c.completer_name ?? 'inconnu'}
+                              </p>
+                              {c.completed_at && (
+                                <p className="text-pink-300 text-xs">{fmtDate(c.completed_at)}</p>
+                              )}
                             </div>
-                          )}
-                          <div className="flex-1 min-w-0 pt-0.5">
-                            <p className="font-semibold text-pink-800 text-sm leading-snug line-clamp-2">
-                              {c.title}
-                            </p>
-                            <p className="text-pink-400 text-xs mt-1">
-                              ✅ Relevé par {c.completer_name ?? 'inconnu'}
-                            </p>
-                            <p className="text-pink-300 text-xs">
-                              {c.completed_at ? fmtDate(c.completed_at) : ''}
-                            </p>
-                          </div>
-                        </motion.div>
-                      ))}
+                          </motion.div>
+                        )
+                      })}
                     </div>
                   </div>
                 )}

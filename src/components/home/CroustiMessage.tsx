@@ -12,6 +12,8 @@ type Message = {
   created_at: string
 }
 
+const LS_LAST_SEEN = 'nidou_messages_last_seen'
+
 function fmtTime(iso: string): string {
   const d = new Date(iso)
   const now = new Date()
@@ -25,10 +27,12 @@ function fmtTime(iso: string): string {
 
 export function CroustiMessage({ user }: { user: User }) {
   const [messages, setMessages] = useState<Message[]>([])
-  const [loaded, setLoaded] = useState(false)
   const [isOpen, setIsOpen] = useState(false)
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
+  const [lastSeen, setLastSeen] = useState<string>(
+    () => localStorage.getItem(LS_LAST_SEEN) ?? new Date(0).toISOString()
+  )
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -38,10 +42,7 @@ export function CroustiMessage({ user }: { user: User }) {
       .select('*')
       .order('created_at', { ascending: true })
       .limit(200)
-      .then(({ data }) => {
-        setMessages(data ?? [])
-        setLoaded(true)
-      })
+      .then(({ data }) => setMessages(data ?? []))
 
     const channel = supabase
       .channel('messages-realtime')
@@ -66,10 +67,21 @@ export function CroustiMessage({ user }: { user: User }) {
   }, [isOpen, messages.length])
 
   useEffect(() => {
-    if (isOpen) {
-      setTimeout(() => inputRef.current?.focus(), 300)
-    }
+    if (isOpen) setTimeout(() => inputRef.current?.focus(), 300)
   }, [isOpen])
+
+  const unreadCount = messages.filter(
+    (m) => m.sender_id !== user.id && m.created_at > lastSeen
+  ).length
+
+  const openModal = () => {
+    const now = new Date().toISOString()
+    setLastSeen(now)
+    localStorage.setItem(LS_LAST_SEEN, now)
+    setIsOpen(true)
+  }
+
+  const closeModal = () => setIsOpen(false)
 
   const send = async () => {
     const content = input.trim()
@@ -84,51 +96,38 @@ export function CroustiMessage({ user }: { user: User }) {
     setSending(false)
   }
 
-  const lastMsg = messages[messages.length - 1]
-
   return (
     <>
-      {/* ── Preview card ── */}
-      <div
-        className="glass-card rounded-3xl p-6 cursor-pointer group
-                   hover:shadow-lg hover:shadow-pink-100 transition-all duration-200"
-        onClick={() => setIsOpen(true)}
-        role="button"
-        aria-label="Ouvrir Crousti-message"
+      {/* ── Bulle flottante ── */}
+      <motion.button
+        onClick={openModal}
+        className="fixed bottom-6 right-6 z-40 w-14 h-14 rounded-full
+                   bg-gradient-to-br from-pink-400 to-violet-400
+                   shadow-lg shadow-pink-300/40
+                   flex items-center justify-center cursor-pointer"
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.95 }}
+        aria-label="Ouvrir les messages"
       >
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <MessageCircle className="text-pink-400" size={18} strokeWidth={1.8} />
-            <h2
-              className="font-bold text-pink-700 text-sm"
-              style={{ fontFamily: '"Varela Round", sans-serif' }}
+        <MessageCircle size={24} className="text-white" strokeWidth={1.8} />
+        <AnimatePresence>
+          {unreadCount > 0 && (
+            <motion.span
+              key="badge"
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0 }}
+              className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1 rounded-full
+                         bg-red-500 text-white text-xs font-bold
+                         flex items-center justify-center"
             >
-              Crousti-message 💌
-            </h2>
-          </div>
-          <span className="text-pink-300 text-xs group-hover:text-pink-500 transition-colors">
-            →
-          </span>
-        </div>
+              {unreadCount > 9 ? '9+' : unreadCount}
+            </motion.span>
+          )}
+        </AnimatePresence>
+      </motion.button>
 
-        {loaded ? (
-          lastMsg ? (
-            <div>
-              <p className="text-pink-600 text-sm leading-relaxed line-clamp-2">
-                <span className="font-medium">
-                  {lastMsg.sender_id === user.id ? 'Moi' : lastMsg.sender_name ?? 'Eux'}&nbsp;:&nbsp;
-                </span>
-                {lastMsg.content}
-              </p>
-              <p className="text-pink-300 text-xs mt-2">{fmtTime(lastMsg.created_at)}</p>
-            </div>
-          ) : (
-            <p className="text-pink-400 text-sm">Envoyer votre premier Crousti-message 💕</p>
-          )
-        ) : null}
-      </div>
-
-      {/* ── Modal ── */}
+      {/* ── Modale ── */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -141,7 +140,7 @@ export function CroustiMessage({ user }: { user: User }) {
             {/* Backdrop */}
             <div
               className="absolute inset-0 bg-pink-950/20 backdrop-blur-sm"
-              onClick={() => setIsOpen(false)}
+              onClick={closeModal}
             />
 
             {/* Panel */}
@@ -166,7 +165,7 @@ export function CroustiMessage({ user }: { user: User }) {
                   </h2>
                 </div>
                 <button
-                  onClick={() => setIsOpen(false)}
+                  onClick={closeModal}
                   className="text-pink-300 hover:text-pink-500 transition-colors cursor-pointer p-1"
                   aria-label="Fermer"
                 >

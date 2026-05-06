@@ -1,62 +1,10 @@
 import { motion } from 'framer-motion'
 import type { User } from '@supabase/supabase-js'
-import {
-  CalendarDays,
-  Music,
-  Camera,
-  Moon,
-  LogOut,
-  Lock,
-  Sparkles,
-  type LucideIcon,
-} from 'lucide-react'
+import { LogOut, Sparkles } from 'lucide-react'
 import { NextMeetingCard } from './NextMeetingCard'
 import { CroustiMessage } from './CroustiMessage'
 import { DefiLundi } from './DefiLundi'
 
-type Feature = {
-  icon: LucideIcon
-  title: string
-  description: string
-  iconColor: string
-  bgColor: string
-  delay: number
-}
-
-const FEATURES: Feature[] = [
-  {
-    icon: CalendarDays,
-    title: 'Compteur de Jours',
-    description: 'Comptez les jours séparés et anticipez les prochaines retrouvailles',
-    iconColor: 'text-violet-500',
-    bgColor: 'bg-violet-50',
-    delay: 0,
-  },
-  {
-    icon: Music,
-    title: 'Playlist Partagée',
-    description: 'Créez votre bande-son commune, chanson après chanson',
-    iconColor: 'text-purple-500',
-    bgColor: 'bg-purple-50',
-    delay: 0.06,
-  },
-  {
-    icon: Camera,
-    title: 'Mémoires Ensemble',
-    description: 'Votre album photo de couple, un souvenir à la fois',
-    iconColor: 'text-rose-500',
-    bgColor: 'bg-rose-50',
-    delay: 0.12,
-  },
-  {
-    icon: Moon,
-    title: 'Rituel du Soir',
-    description: 'Partagez votre humeur et vos rêves chaque soir',
-    iconColor: 'text-indigo-500',
-    bgColor: 'bg-indigo-50',
-    delay: 0.18,
-  },
-]
 
 type Props = {
   user: User
@@ -149,76 +97,12 @@ export function HomePage({ user, onSignOut }: Props) {
 
         {/* Cards principales */}
         <section className="px-4 pb-8">
-          <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="max-w-3xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-4">
             <NextMeetingCard />
-            <CroustiMessage user={user} />
             <DefiLundi user={user} />
           </div>
         </section>
 
-        {/* Features grid */}
-        <section className="px-4 pb-16" aria-label="Fonctionnalités">
-          <div className="max-w-5xl mx-auto" aria-label="Fonctionnalités à venir">
-            <motion.div
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: 0.1 }}
-              className="text-center mb-8"
-            >
-              <h2
-                className="text-2xl font-bold text-pink-700"
-                style={{ fontFamily: '"Varela Round", sans-serif' }}
-              >
-                Votre nid, en construction
-              </h2>
-              <p className="text-pink-400 text-sm mt-1.5">
-                De belles fonctionnalités arrivent très bientôt…
-              </p>
-            </motion.div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {FEATURES.map((feature) => (
-                <motion.article
-                  key={feature.title}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{
-                    duration: 0.4,
-                    delay: feature.delay + 0.15,
-                    ease: [0.16, 1, 0.3, 1],
-                  }}
-                  className="glass-card rounded-2xl p-6 cursor-pointer group
-                             hover:shadow-lg hover:shadow-pink-100 hover:scale-[1.025]
-                             transition-all duration-200"
-                >
-                  <div
-                    className={`inline-flex items-center justify-center w-11 h-11 rounded-xl ${feature.bgColor} mb-4
-                                group-hover:scale-110 transition-transform duration-200`}
-                    aria-hidden
-                  >
-                    <feature.icon className={`w-5 h-5 ${feature.iconColor}`} strokeWidth={1.8} />
-                  </div>
-
-                  <h3
-                    className="font-bold text-pink-800 text-base mb-1.5"
-                    style={{ fontFamily: '"Varela Round", sans-serif' }}
-                  >
-                    {feature.title}
-                  </h3>
-
-                  <p className="text-pink-400 text-sm leading-relaxed">
-                    {feature.description}
-                  </p>
-
-                  <div className="flex items-center gap-1.5 mt-4 pt-4 border-t border-pink-50">
-                    <Lock size={12} className="text-pink-200" aria-hidden />
-                    <span className="text-pink-200 text-xs font-medium">Bientôt disponible</span>
-                  </div>
-                </motion.article>
-              ))}
-            </div>
-          </div>
-        </section>
       </main>
 
       <footer className="text-center py-8 px-4">
@@ -226,6 +110,8 @@ export function HomePage({ user, onSignOut }: Props) {
           Fait avec amour, pour les cœurs qui battent à distance 💕
         </p>
       </footer>
+
+      <CroustiMessage user={user} />
     </div>
   )
 }

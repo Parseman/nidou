@@ -52,13 +52,19 @@ export function NextMeetingCard() {
   const [nextDate, setNextDate] = useState('')
   const [lastDate, setLastDate] = useState('')
   const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     supabase
       .from('couple_settings')
       .select('next_meeting_date, last_meeting_date')
       .maybeSingle()
-      .then(({ data: row }) => {
+      .then(({ data: row, error: fetchError }) => {
+        if (fetchError) {
+          console.error('couple_settings fetch:', fetchError)
+          setData({ next_meeting_date: null, last_meeting_date: null })
+          return
+        }
         const settings = row ?? { next_meeting_date: null, last_meeting_date: null }
         setData(settings)
         setNextDate(settings.next_meeting_date ?? '')
@@ -69,18 +75,25 @@ export function NextMeetingCard() {
   const openEdit = () => {
     setNextDate(data?.next_meeting_date ?? '')
     setLastDate(data?.last_meeting_date ?? '')
+    setError(null)
     setEditing(true)
   }
 
   const save = async () => {
     setSaving(true)
-    const payload = {
+    setError(null)
+    const { error } = await supabase.from('couple_settings').upsert({
       id: 1,
       next_meeting_date: nextDate || null,
       last_meeting_date: lastDate || null,
       updated_at: new Date().toISOString(),
+    })
+    if (error) {
+      console.error('couple_settings upsert:', error)
+      setError('Erreur lors de la sauvegarde. Réessaie.')
+      setSaving(false)
+      return
     }
-    await supabase.from('couple_settings').upsert(payload)
     setData({ next_meeting_date: nextDate || null, last_meeting_date: lastDate || null })
     setSaving(false)
     setEditing(false)
@@ -206,6 +219,10 @@ export function NextMeetingCard() {
                 className="input-field text-sm"
               />
             </div>
+
+            {error && (
+              <p className="text-xs text-red-500">{error}</p>
+            )}
 
             <div className="flex gap-2 pt-1">
               <button
