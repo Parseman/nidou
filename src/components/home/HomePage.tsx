@@ -4,14 +4,16 @@ import { LogOut, Sparkles } from 'lucide-react'
 import { NextMeetingCard } from './NextMeetingCard'
 import { CroustiMessage } from './CroustiMessage'
 import { DefiLundi } from './DefiLundi'
+import { NidouChatIcon } from './NidouChat'
 
 
 type Props = {
   user: User
   onSignOut: () => void
+  onGoToPet: () => void
 }
 
-export function HomePage({ user, onSignOut }: Props) {
+export function HomePage({ user, onSignOut, onGoToPet }: Props) {
   const displayName = user.user_metadata?.first_name ?? user.email?.split('@')[0] ?? 'toi'
 
   return (
@@ -96,10 +98,17 @@ export function HomePage({ user, onSignOut }: Props) {
         </section>
 
         {/* Cards principales */}
-        <section className="px-4 pb-8">
+        <section className="px-4 pb-6">
           <div className="max-w-3xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-4">
             <NextMeetingCard />
             <DefiLundi user={user} />
+          </div>
+        </section>
+
+        {/* Card Nidou */}
+        <section className="px-4 pb-10">
+          <div className="max-w-xs mx-auto">
+            <NidouChatIcon onOpen={onGoToPet} />
           </div>
         </section>
 
