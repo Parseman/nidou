@@ -1,5 +1,24 @@
 import { supabase } from './supabase'
 
+export async function getPushEnabled(): Promise<boolean> {
+  if (!('serviceWorker' in navigator) || !('Notification' in window)) return false
+  if (Notification.permission !== 'granted') return false
+  const reg = await navigator.serviceWorker.getRegistration('/sw.js')
+  if (!reg) return false
+  const sub = await reg.pushManager.getSubscription()
+  return sub !== null
+}
+
+export async function unregisterPush(): Promise<void> {
+  if (!('serviceWorker' in navigator)) return
+  const reg = await navigator.serviceWorker.getRegistration('/sw.js')
+  if (!reg) return
+  const sub = await reg.pushManager.getSubscription()
+  if (!sub) return
+  await supabase.from('push_subscriptions').delete().eq('endpoint', sub.endpoint)
+  await sub.unsubscribe()
+}
+
 function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')

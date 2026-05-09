@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { User } from '@supabase/supabase-js'
-import { X, Bell, BellOff, BellRing } from 'lucide-react'
-import { registerPush } from '../../lib/pushNotifications'
+import { X, Bell, BellOff } from 'lucide-react'
+import { registerPush, unregisterPush, getPushEnabled } from '../../lib/pushNotifications'
 
 type Props = {
   open: boolean
@@ -12,16 +12,28 @@ type Props = {
 
 export function SettingsModal({ open, onClose, user }: Props) {
   const [permission, setPermission] = useState<NotificationPermission>('default')
+  const [enabled, setEnabled] = useState(false)
   const [loading, setLoading] = useState(false)
+  const supported = 'Notification' in window && 'PushManager' in window
 
   useEffect(() => {
+    if (!open) return
     if ('Notification' in window) setPermission(Notification.permission)
+    getPushEnabled().then(setEnabled)
   }, [open])
 
-  async function handleEnable() {
+  async function handleToggle() {
     setLoading(true)
-    const result = await registerPush(user.id)
-    if (result.ok) setPermission('granted')
+    if (enabled) {
+      await unregisterPush()
+      setEnabled(false)
+    } else {
+      const result = await registerPush(user.id)
+      if (result.ok) {
+        setPermission('granted')
+        setEnabled(true)
+      }
+    }
     setLoading(false)
   }
 
@@ -70,34 +82,35 @@ export function SettingsModal({ open, onClose, user }: Props) {
 
                 <div className="bg-white/40 rounded-xl p-4 flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
-                    {permission === 'granted' ? (
-                      <BellRing size={20} className="text-violet-500 shrink-0" />
-                    ) : permission === 'denied' ? (
-                      <BellOff size={20} className="text-pink-300 shrink-0" />
-                    ) : (
-                      <Bell size={20} className="text-pink-400 shrink-0" />
-                    )}
+                    {enabled
+                      ? <Bell size={20} className="text-violet-500 shrink-0" />
+                      : <BellOff size={20} className="text-pink-300 shrink-0" />
+                    }
                     <div>
                       <p className="text-sm font-medium text-pink-700">
                         Notifications push
                       </p>
                       <p className="text-xs text-pink-400 mt-0.5">
-                        {permission === 'granted'
-                          ? 'Activées ✓'
-                          : permission === 'denied'
-                          ? 'Bloquées — autorise dans les réglages du navigateur'
-                          : 'Messages, défis, rappels quotidiens'}
+                        {permission === 'denied'
+                          ? 'Bloquées — autorise dans les réglages navigateur'
+                          : enabled
+                          ? 'Messages, défis, rappels à 15h'
+                          : 'Désactivées sur cet appareil'}
                       </p>
                     </div>
                   </div>
 
-                  {permission !== 'denied' && (
+                  {supported && permission !== 'denied' && (
                     <button
-                      onClick={handleEnable}
+                      onClick={handleToggle}
                       disabled={loading}
-                      className="btn-primary text-xs px-3 py-1.5 shrink-0 disabled:opacity-50"
+                      aria-label={enabled ? 'Désactiver les notifications' : 'Activer les notifications'}
+                      className={`relative w-11 h-6 rounded-full transition-colors duration-200 shrink-0 disabled:opacity-50 cursor-pointer
+                        ${enabled ? 'bg-violet-500' : 'bg-pink-200'}`}
                     >
-                      {loading ? '…' : permission === 'granted' ? '🔄' : 'Activer'}
+                      <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200
+                        ${enabled ? 'translate-x-5' : 'translate-x-0'}`}
+                      />
                     </button>
                   )}
                 </div>
