@@ -14,6 +14,7 @@ export function SettingsModal({ open, onClose, user }: Props) {
   const [permission, setPermission] = useState<NotificationPermission>('default')
   const [enabled, setEnabled] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const supported = 'Notification' in window && 'PushManager' in window
 
   useEffect(() => {
@@ -24,6 +25,7 @@ export function SettingsModal({ open, onClose, user }: Props) {
 
   async function handleToggle() {
     setLoading(true)
+    setError(null)
     if (enabled) {
       await unregisterPush()
       setEnabled(false)
@@ -32,6 +34,8 @@ export function SettingsModal({ open, onClose, user }: Props) {
       if (result.ok) {
         setPermission('granted')
         setEnabled(true)
+      } else {
+        setError(result.message)
       }
     }
     setLoading(false)
@@ -119,6 +123,9 @@ export function SettingsModal({ open, onClose, user }: Props) {
                   <p className="text-xs text-pink-400 mt-2 text-center">
                     Sur iPhone : Réglages → Safari → Notifications → autorise le site
                   </p>
+                )}
+                {error && (
+                  <p className="text-xs text-red-400 mt-2 text-center break-words">{error}</p>
                 )}
               </div>
             </div>
