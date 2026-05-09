@@ -1,10 +1,12 @@
+import { useState } from 'react'
 import { motion } from 'framer-motion'
 import type { User } from '@supabase/supabase-js'
-import { LogOut, Sparkles } from 'lucide-react'
+import { LogOut, Sparkles, Settings } from 'lucide-react'
 import { NextMeetingCard } from './NextMeetingCard'
 import { CroustiMessage } from './CroustiMessage'
 import { DefiLundi } from './DefiLundi'
 import { NidouChatIcon } from './NidouChat'
+import { SettingsModal } from './SettingsModal'
 
 
 type Props = {
@@ -15,6 +17,7 @@ type Props = {
 
 export function HomePage({ user, onSignOut, onGoToPet }: Props) {
   const displayName = user.user_metadata?.first_name ?? user.email?.split('@')[0] ?? 'toi'
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   return (
     <div className="min-h-screen relative">
@@ -43,6 +46,15 @@ export function HomePage({ user, onSignOut, onGoToPet }: Props) {
               {user.user_metadata?.first_name ?? user.email}
             </span>
             <div className="w-px h-4 bg-pink-100 hidden sm:block" aria-hidden />
+            <button
+              onClick={() => setSettingsOpen(true)}
+              className="flex items-center gap-1.5 text-pink-400 hover:text-pink-600 transition-colors cursor-pointer text-sm font-medium"
+              aria-label="Paramètres"
+            >
+              <Settings size={15} aria-hidden />
+              <span className="hidden sm:block">Paramètres</span>
+            </button>
+            <div className="w-px h-4 bg-pink-100" aria-hidden />
             <button
               onClick={onSignOut}
               className="flex items-center gap-1.5 text-pink-400 hover:text-pink-600 transition-colors cursor-pointer text-sm font-medium"
@@ -121,6 +133,7 @@ export function HomePage({ user, onSignOut, onGoToPet }: Props) {
       </footer>
 
       <CroustiMessage user={user} />
+      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} user={user} />
     </div>
   )
 }
