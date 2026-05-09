@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Loader2 } from 'lucide-react'
 import { useAuth } from './hooks/useAuth'
 import { AuthPage } from './components/auth/AuthPage'
 import { HomePage } from './components/home/HomePage'
 import { PetPage } from './components/pet/PetPage'
+import { registerPush } from './lib/pushNotifications'
 
 type Page = 'home' | 'pet'
 
@@ -29,6 +30,10 @@ export default function App() {
   const { user, loading, signIn, signOut } = useAuth()
   const [page, setPage] = useState<Page>('home')
   const [dir,  setDir]  = useState(1)
+
+  useEffect(() => {
+    if (user) registerPush(user.id)
+  }, [user])
 
   const navigate = (to: Page) => {
     setDir(to === 'pet' ? 1 : -1)
