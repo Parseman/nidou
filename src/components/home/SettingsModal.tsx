@@ -20,8 +20,8 @@ export function SettingsModal({ open, onClose, user }: Props) {
 
   async function handleEnable() {
     setLoading(true)
-    await registerPush(user.id)
-    if ('Notification' in window) setPermission(Notification.permission)
+    const result = await registerPush(user.id)
+    if (result.ok) setPermission('granted')
     setLoading(false)
   }
 
@@ -91,18 +91,14 @@ export function SettingsModal({ open, onClose, user }: Props) {
                     </div>
                   </div>
 
-                  {permission !== 'granted' && permission !== 'denied' && (
+                  {permission !== 'denied' && (
                     <button
                       onClick={handleEnable}
                       disabled={loading}
                       className="btn-primary text-xs px-3 py-1.5 shrink-0 disabled:opacity-50"
                     >
-                      {loading ? '…' : 'Activer'}
+                      {loading ? '…' : permission === 'granted' ? '🔄' : 'Activer'}
                     </button>
-                  )}
-
-                  {permission === 'granted' && (
-                    <span className="text-lg shrink-0">✅</span>
                   )}
                 </div>
 
