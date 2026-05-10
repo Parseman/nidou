@@ -7,6 +7,7 @@ import { CroustiMessage } from './CroustiMessage'
 import { DefiLundi } from './DefiLundi'
 import { NidouChatIcon } from './NidouChat'
 import { SettingsModal } from './SettingsModal'
+import { CoinPot } from './CoinPot'
 
 
 type Props = {
@@ -114,6 +115,13 @@ export function HomePage({ user, onSignOut, onGoToPet }: Props) {
           <div className="max-w-3xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-4">
             <NextMeetingCard />
             <DefiLundi user={user} />
+          </div>
+        </section>
+
+        {/* Pot commun */}
+        <section className="px-4 pb-6">
+          <div className="max-w-3xl mx-auto">
+            <CoinPot />
           </div>
         </section>
 

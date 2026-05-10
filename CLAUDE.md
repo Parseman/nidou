@@ -25,15 +25,27 @@ npm run preview  # preview du build
 ```
 VITE_SUPABASE_URL=https://xymhisdmffdgarabglne.supabase.co
 VITE_SUPABASE_ANON_KEY=<jwt>
+VITE_VAPID_PUBLIC_KEY=<clé publique VAPID>
 ```
+
+À définir aussi dans **Vercel → Settings → Environment Variables** (le `.env` n'est pas déployé).
+
+Secrets Supabase (Edge Functions → Secrets) :
+```
+VAPID_PUBLIC_KEY=<clé publique VAPID>
+VAPID_PRIVATE_KEY=<clé privée VAPID>
+```
+
+Générer les clés VAPID : `npx web-push generate-vapid-keys`
 
 ## Architecture
 
 ```
 src/
-  App.tsx                    # Auth gate + navigation entre pages (home ↔ pet)
+  App.tsx                    # Auth gate + navigation + auto-enregistrement push si permission déjà granted
   hooks/useAuth.ts           # session Supabase, signIn, signOut
   lib/supabase.ts            # createClient (anon key)
+  lib/pushNotifications.ts   # registerPush, unregisterPush, getPushEnabled
   components/
     auth/AuthPage.tsx        # Formulaire login (email/password)
     home/
@@ -42,12 +54,20 @@ src/
       DefiLundi.tsx          # Système de défis hebdomadaires
       CroustiMessage.tsx     # Messagerie temps réel (bulle flottante bas-droite)
       NidouChat.tsx          # Card cliquable (image nidou-cover.png) → page pet
+      SettingsModal.tsx      # Modale paramètres (toggle notifs push)
+      CoinPot.tsx            # Carte pot commun (pièces accumulées selon happiness)
     pet/
       PetPage.tsx            # Page dédiée Tamagotchi : 3 colonnes (actions | 3D | stats)
 public/
   nidouchat-v1.glb          # Modèle 3D du chat (Poly Pizza)
   nidou-cover.png           # Illustration du chat dans le nid (card home)
-supabase/migrations/        # SQL à exécuter manuellement dans le dashboard Supabase
+  sw.js                     # Service Worker pour les notifications push
+supabase/
+  migrations/               # SQL à exécuter manuellement dans le dashboard Supabase
+  functions/
+    send-push/              # Envoi notif push sur INSERT messages ou challenges (webhook)
+    daily-reminder/         # Rappel quotidien 15h si défis en attente (pg_cron)
+    notify-pet/             # Alerte Discord si stats pet critiques
 ```
 
 ## Navigation
@@ -104,6 +124,15 @@ Realtime : INSERT subscription.
 Storage : bucket `challenges`, chemin `{challenge_id}/{timestamp}.{ext}`.
 Realtime : `postgres_changes` sur tous les events.
 
+### `couple_settings` (suite)
+| Colonne               | Type        | Notes                                      |
+|-----------------------|-------------|--------------------------------------------|
+| coins                 | integer     | Pot commun, peut être négatif              |
+| last_coin_update_at   | timestamptz | Timestamp du dernier règlement de pièces   |
+| coin_rate             | integer     | +1 ou -1 selon happiness au dernier règlement |
+
+Realtime : UPDATE subscription (pour le pot commun live entre les deux joueurs).
+
 ### `pet`
 | Colonne         | Type        | Notes                                        |
 |-----------------|-------------|----------------------------------------------|
@@ -149,12 +178,27 @@ Realtime : UPDATE subscription (dans NidouChat.tsx et PetPage.tsx).
 ### App.tsx
 - State `page: 'home' | 'pet'` + `dir: number` pour animer le slide.
 - `navigate(to)` : met à jour dir et page, déclenche la transition Framer Motion.
+- Au login, si `Notification.permission === 'granted'`, appelle `registerPush` silencieusement (re-sync la subscription sans popup).
 
 ### HomePage
 - Grille 2 colonnes (`max-w-3xl mx-auto grid grid-cols-1 md:grid-cols-2`) : NextMeetingCard + DefiLundi.
 - Section centrée sous la grille : `NidouChatIcon` (card image → page pet).
 - `<CroustiMessage>` rendu hors grille (bulle fixed bas-droite).
+- `<SettingsModal>` déclenché par le bouton ⚙️ Paramètres dans la navbar.
 - Reçoit `onGoToPet` en prop.
+
+### CoinPot
+- Carte pleine largeur entre la grille et NidouChatIcon.
+- **Règlement** (`settle`) au montage : lit `pet` + `couple_settings`, calcule les minutes écoulées depuis `last_coin_update_at`, applique `coin_rate` (+1 ou -1 selon happiness), écrit en base (`coins`, `last_coin_update_at`, `coin_rate`).
+- **Display live** : `display = coins + rate * floor(elapsed_minutes)` — `setInterval` 60s sans écrire en base.
+- **Realtime** : UPDATE sur `couple_settings` → les deux joueurs voient le même total instantanément.
+- Happiness > 50 → +1/min (badge vert), < 50 → −1/min (badge rouge). Valeur peut être négative.
+
+### SettingsModal
+- Toggle pour activer/désactiver les notifications push sur l'appareil courant.
+- Activer → `registerPush` (demande permission si besoin + enregistre en base).
+- Désactiver → `unregisterPush` (supprime la subscription de `push_subscriptions` + désabonne le SW).
+- L'état initial est lu via `getPushEnabled()` (vérifie la subscription SW réelle, pas juste la permission).
 
 ### NidouChat.tsx (export : `NidouChatIcon`)
 - Card cliquable avec `public/nidou-cover.png` en image de fond.
@@ -186,6 +230,25 @@ Realtime : UPDATE subscription (dans NidouChat.tsx et PetPage.tsx).
 - ⚙️ Pour ajuster le zoom : modifier `scale` sur `<primitive>` (ligne ~75) ou `position` de la caméra (ligne ~175).
 - Exports partagés : `calcStats`, `canAct`, `COOLDOWN_MS`, `DECAY_PER_HOUR`, `BONUS`, types.
 
+## Notifications push — architecture
+
+- **Service Worker** : `public/sw.js` — reçoit les push et affiche les notifications.
+- **`src/lib/pushNotifications.ts`** : `registerPush` / `unregisterPush` / `getPushEnabled`.
+- **Table `push_subscriptions`** : une ligne par appareil (`endpoint` unique). RLS : chaque user gère ses propres lignes.
+- **Edge function `send-push`** : déployée avec `--no-verify-jwt`. Appelée par deux triggers Postgres :
+  ```sql
+  -- Créés via SQL Editor (pas via le dashboard Webhooks qui ne persiste pas)
+  CREATE TRIGGER on_new_message AFTER INSERT ON public.messages ...
+  CREATE TRIGGER on_new_challenge AFTER INSERT ON public.challenges ...
+  -- supabase_functions.http_request(url, 'POST', headers, body, timeout)
+  ```
+- **Edge function `daily-reminder`** : rappel quotidien à 15h Paris, planifié via `pg_cron` :
+  ```sql
+  SELECT cron.schedule('daily-challenge-reminder', '0 13 * * *', $$ SELECT net.http_post(...) $$);
+  -- 13h UTC = 15h Paris en été (UTC+2). Passer à 14h UTC en hiver (UTC+1).
+  ```
+- **iOS** : Web Push nécessite d'ajouter l'app à l'écran d'accueil depuis Safari.
+
 ## Migrations SQL
 
 À exécuter dans le dashboard Supabase → SQL Editor :
@@ -193,6 +256,8 @@ Realtime : UPDATE subscription (dans NidouChat.tsx et PetPage.tsx).
 1. `supabase/migrations/20260507_couple_settings.sql` — table couple_settings + RLS
 2. `supabase/migrations/20260507_challenges_rules.sql` — colonnes difficulty, deadline, validated, etc.
 3. `supabase/migrations/20260507_pet.sql` — table pet + RLS
+4. `supabase/migrations/20260510_push_subscriptions.sql` — table push_subscriptions + RLS
+5. `supabase/migrations/20260511_coins.sql` — colonnes coins/last_coin_update_at/coin_rate sur couple_settings + realtime
 
 ## Conventions
 
