@@ -68,6 +68,7 @@ supabase/
     send-push/              # Envoi notif push sur INSERT messages ou challenges (webhook)
     daily-reminder/         # Rappel quotidien 15h si défis en attente (pg_cron)
     notify-pet/             # Alerte Discord si stats pet critiques
+    check-pet-push/         # Push si bonheur < 50 (pg_cron toutes les 15min, cooldown 3h)
 ```
 
 ## Navigation
@@ -143,6 +144,8 @@ Realtime : UPDATE subscription (pour le pot commun live entre les deux joueurs).
 | last_fed_at     | timestamptz | timestamp du dernier nourrissage             |
 | last_washed_at  | timestamptz | timestamp du dernier lavage                  |
 | last_pet_at     | timestamptz | timestamp du dernier câlin                   |
+| last_notified_at | timestamptz | anti-spam Discord (notify-pet)              |
+| last_happiness_push_at | timestamptz | anti-spam push bonheur < 50 (cooldown 3h) |
 | updated_at      | timestamptz |                                              |
 
 RLS : authenticated users can read/write. Upsert avec `id: 1`.
@@ -242,6 +245,7 @@ Realtime : UPDATE subscription (dans NidouChat.tsx et PetPage.tsx).
   CREATE TRIGGER on_new_challenge AFTER INSERT ON public.challenges ...
   -- supabase_functions.http_request(url, 'POST', headers, body, timeout)
   ```
+- **Edge function `check-pet-push`** : déployée avec `--no-verify-jwt`. Vérifie toutes les 15min via pg_cron (`*/15 * * * *`). Calcule le bonheur actuel depuis les timestamps, envoie push si < 50. Anti-spam : `last_happiness_push_at` sur `pet`, cooldown 3h.
 - **Edge function `daily-reminder`** : rappel quotidien à 15h Paris, planifié via `pg_cron` :
   ```sql
   SELECT cron.schedule('daily-challenge-reminder', '0 13 * * *', $$ SELECT net.http_post(...) $$);
@@ -258,6 +262,7 @@ Realtime : UPDATE subscription (dans NidouChat.tsx et PetPage.tsx).
 3. `supabase/migrations/20260507_pet.sql` — table pet + RLS
 4. `supabase/migrations/20260510_push_subscriptions.sql` — table push_subscriptions + RLS
 5. `supabase/migrations/20260511_coins.sql` — colonnes coins/last_coin_update_at/coin_rate sur couple_settings + realtime
+6. `supabase/migrations/20260511_pet_happiness_push.sql` — colonne last_happiness_push_at sur pet
 
 ## Conventions
 
