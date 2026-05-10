@@ -12,27 +12,30 @@ const supabase = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
 )
 
-const DECAY_PER_HOUR = { happiness: 1.5 }
+const DECAY_PER_HOUR = { hunger: 3, hygiene: 2, happiness: 1.5 }
 const COOLDOWN_H = 3
 
-function calcHappiness(happiness: number, lastPetAt: string): number {
-  const hrs = (Date.now() - new Date(lastPetAt).getTime()) / 3_600_000
-  return Math.max(0, Math.min(100, happiness - DECAY_PER_HOUR.happiness * hrs))
+function calcStats(pet: Record<string, unknown>) {
+  const hrs = (ts: string) => (Date.now() - new Date(ts).getTime()) / 3_600_000
+  const hunger    = Math.max(0, Math.min(100, (pet.hunger    as number) - DECAY_PER_HOUR.hunger    * hrs(pet.last_fed_at   as string)))
+  const hygiene   = Math.max(0, Math.min(100, (pet.hygiene   as number) - DECAY_PER_HOUR.hygiene   * hrs(pet.last_washed_at as string)))
+  const happiness = Math.max(0, Math.min(100, (pet.happiness as number) - DECAY_PER_HOUR.happiness * hrs(pet.last_pet_at    as string)))
+  return { hunger, hygiene, happiness, overall: (hunger + hygiene + happiness) / 3 }
 }
 
 Deno.serve(async () => {
   const { data: pet, error } = await supabase
     .from('pet')
-    .select('happiness, last_pet_at, last_happiness_push_at')
+    .select('hunger, hygiene, happiness, last_fed_at, last_washed_at, last_pet_at, last_happiness_push_at')
     .eq('id', 1)
     .single()
 
   if (error || !pet) return new Response('Pet introuvable', { status: 404 })
 
-  const currentHappiness = calcHappiness(pet.happiness, pet.last_pet_at)
+  const stats = calcStats(pet)
 
-  if (currentHappiness >= 50) {
-    return new Response(`Bonheur ok (${Math.round(currentHappiness)})`, { status: 200 })
+  if (stats.overall >= 50) {
+    return new Response(`Bien-être ok (${Math.round(stats.overall)})`, { status: 200 })
   }
 
   // Anti-spam
@@ -50,8 +53,8 @@ Deno.serve(async () => {
   if (!subs?.length) return new Response('Aucun abonné', { status: 200 })
 
   const payload = JSON.stringify({
-    title: '😿 Nidou est triste',
-    body: `Son bonheur est tombé à ${Math.round(currentHappiness)}/100. Venez lui faire un câlin !`,
+    title: '😿 Nidou a besoin de vous !',
+    body: `Son bien-être global est à ${Math.round(stats.overall)}/100. Venez en prendre soin !`,
     tag: 'pet-sad',
   })
 
@@ -64,5 +67,5 @@ Deno.serve(async () => {
     .update({ last_happiness_push_at: new Date().toISOString() })
     .eq('id', 1)
 
-  return new Response(`Notif envoyée (bonheur : ${Math.round(currentHappiness)})`, { status: 200 })
+  return new Response(`Notif envoyée (bien-être : ${Math.round(stats.overall)})`, { status: 200 })
 })
