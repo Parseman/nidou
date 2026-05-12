@@ -34,7 +34,7 @@ Deno.serve(async () => {
 
   const stats = calcStats(pet)
 
-  if (stats.overall >= 50) {
+  if (stats.overall >= 75) {
     return new Response(`Bien-être ok (${Math.round(stats.overall)})`, { status: 200 })
   }
 
