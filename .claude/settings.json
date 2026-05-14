@@ -14,7 +14,8 @@
       "Bash(xargs grep -l \"Compteur\\\\|Playlist\\\\|Mémoire\\\\|Rituel\")",
       "Bash(npx tsc *)",
       "PowerShell(Get-ChildItem -Path \"c:\\\\Users\\\\cleme\\\\nidou\" -Recurse -Force | Where-Object { $_.FullName -notmatch 'node_modules|\\\\.git' } | Select-Object FullName | ForEach-Object { $_.FullName })",
-      "PowerShell(Get-ChildItem -Path \"c:\\\\Users\\\\cleme\\\\nidou\\\\supabase\" -Recurse | ForEach-Object { $_.FullName })"
+      "PowerShell(Get-ChildItem -Path \"c:\\\\Users\\\\cleme\\\\nidou\\\\supabase\" -Recurse | ForEach-Object { $_.FullName })",
+      "Bash(npx supabase *)"
     ]
   }
 }

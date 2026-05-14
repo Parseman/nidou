@@ -74,8 +74,6 @@ Deno.serve(async (req) => {
         })
       }
     }
-  }
-
   } else if (table === 'artworks') {
     await notifyAllExcept(record.sender_id, {
       title: `🎨 ${record.sender_name} t'a envoyé un dessin !`,

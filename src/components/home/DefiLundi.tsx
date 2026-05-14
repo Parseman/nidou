@@ -101,19 +101,30 @@ export function DefiLundi({ user }: { user: User }) {
 
     const rows = (data ?? []) as Challenge[]
 
-    const expired = rows.filter(
-      (c) => c.status === 'proof_submitted' && c.deadline && new Date(c.deadline) < new Date()
+    const now = new Date()
+    const expiredProof = rows.filter(
+      (c) => c.status === 'proof_submitted' && c.deadline && new Date(c.deadline) < now
     )
-    if (expired.length > 0) {
-      await Promise.all(
-        expired.map((c) =>
+    const expiredPending = rows.filter(
+      (c) => c.status === 'pending' && c.deadline && new Date(c.deadline) < now
+    )
+    if (expiredProof.length > 0 || expiredPending.length > 0) {
+      await Promise.all([
+        ...expiredProof.map((c) =>
           supabase.from('challenges').update({
             status: 'validated',
             validated: true,
-            validated_at: new Date().toISOString(),
+            validated_at: now.toISOString(),
           }).eq('id', c.id)
-        )
-      )
+        ),
+        ...expiredPending.map((c) =>
+          supabase.from('challenges').update({
+            status: 'rejected',
+            validated: false,
+            validated_at: now.toISOString(),
+          }).eq('id', c.id)
+        ),
+      ])
       const { data: fresh } = await supabase
         .from('challenges')
         .select('*')
