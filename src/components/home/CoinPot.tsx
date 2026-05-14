@@ -35,7 +35,8 @@ export function CoinPot() {
       if (!pet || cancelled) return
 
       const stats = calcStats(pet as PetRow)
-      const newRate = stats.happiness > 50 ? 1 : -1
+      const avg = (stats.hunger + stats.hygiene + stats.happiness) / 3
+      const newRate = avg > 75 ? 1 : -2
 
       const lastAt = cfg?.last_coin_update_at
         ? new Date(cfg.last_coin_update_at).getTime()
@@ -104,11 +105,9 @@ export function CoinPot() {
 
         {rate !== 0 && (
           <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
-            rate > 0
-              ? 'bg-emerald-100 text-emerald-600'
-              : 'bg-red-100 text-red-500'
+            rate > 0 ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-500'
           }`}>
-            {rate > 0 ? '+1' : '−1'} / min
+            {rate > 0 ? '+1' : '−2'} / min
           </span>
         )}
       </div>

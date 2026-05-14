@@ -15,9 +15,10 @@ type Props = {
   user: User
   onSignOut: () => void
   onGoToPet: () => void
+  onGoToRoom: () => void
 }
 
-export function HomePage({ user, onSignOut, onGoToPet }: Props) {
+export function HomePage({ user, onSignOut, onGoToPet, onGoToRoom }: Props) {
   const displayName = user.user_metadata?.first_name ?? user.email?.split('@')[0] ?? 'toi'
   const [settingsOpen, setSettingsOpen] = useState(false)
 
@@ -124,6 +125,44 @@ export function HomePage({ user, onSignOut, onGoToPet }: Props) {
         <section className="px-4 pb-6">
           <div className="max-w-3xl mx-auto">
             <CoinPot />
+          </div>
+        </section>
+
+        {/* Ma Chambre */}
+        <section className="px-4 pb-6">
+          <div className="max-w-3xl mx-auto">
+            <motion.button
+              onClick={onGoToRoom}
+              whileHover={{ scale: 1.02, y: -3 }}
+              whileTap={{ scale: 0.97 }}
+              className="w-full glass-card rounded-3xl overflow-hidden cursor-pointer shadow-lg shadow-violet-100/60 focus:outline-none group text-left"
+              aria-label="Accéder à ma chambre"
+            >
+              {/* Gradient de fond */}
+              <div className="relative h-28 bg-gradient-to-br from-violet-100 via-pink-100 to-rose-100 overflow-hidden">
+                {/* Décorations flottantes */}
+                <div className="absolute top-3 right-8 text-4xl opacity-70 group-hover:scale-110 transition-transform duration-500">🛏️</div>
+                <div className="absolute top-5 right-24 text-2xl opacity-50 group-hover:translate-y-[-4px] transition-transform duration-700">🪴</div>
+                <div className="absolute bottom-3 right-14 text-xl opacity-40 group-hover:translate-y-[-3px] transition-transform duration-500 delay-100">💡</div>
+                <div className="absolute -bottom-2 -left-2 w-24 h-24 bg-violet-200/40 rounded-full blur-2xl" />
+                <div className="absolute top-0 right-0 w-32 h-32 bg-pink-200/30 rounded-full blur-2xl" />
+
+                {/* Texte */}
+                <div className="absolute inset-0 flex items-center px-6">
+                  <div>
+                    <p
+                      className="text-violet-700 font-bold text-xl leading-tight"
+                      style={{ fontFamily: '"Varela Round", sans-serif' }}
+                    >
+                      Ma Chambre
+                    </p>
+                    <p className="text-violet-500/80 text-xs mt-1">
+                      Décore et personnalise ton espace 3D ✨
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </motion.button>
           </div>
         </section>
 
