@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Trash2, Send } from 'lucide-react'
+import { X, Trash2, Send, Eraser } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../../lib/supabase'
 
-const COLORS = [
-  '#1f2937', '#ef4444', '#f97316', '#eab308',
-  '#22c55e', '#3b82f6', '#8b5cf6', '#ec4899', '#ffffff',
+const FIXED_COLORS: { hex: string; label: string }[] = [
+  { hex: '#1f2937', label: 'Noir' },
+  { hex: '#ffffff', label: 'Blanc' },
 ]
 const SIZES = [3, 7, 14]
 const CANVAS_SIZE = 400
@@ -23,7 +23,9 @@ type Artwork = {
 export function CroustiArt({ user, compact = false }: { user: User; compact?: boolean }) {
   const [artworks, setArtworks] = useState<Artwork[]>([])
   const [isOpen, setIsOpen] = useState(false)
-  const [color, setColor] = useState('#ec4899')
+  const [color, setColor] = useState('hsl(330, 85%, 52%)')
+  const [hue, setHue] = useState(330)
+  const [isEraser, setIsEraser] = useState(false)
   const [brushSize, setBrushSize] = useState(7)
   const [isSending, setIsSending] = useState(false)
   const [hasNew, setHasNew] = useState(false)
@@ -33,6 +35,8 @@ export function CroustiArt({ user, compact = false }: { user: User; compact?: bo
   const lastPoint = useRef<{ x: number; y: number } | null>(null)
   const colorRef = useRef(color)
   const brushRef = useRef(brushSize)
+  const sliderRef = useRef<HTMLDivElement>(null)
+  const isSliding = useRef(false)
 
   useEffect(() => { colorRef.current = color }, [color])
   useEffect(() => { brushRef.current = brushSize }, [brushSize])
@@ -151,6 +155,30 @@ export function CroustiArt({ user, compact = false }: { user: User; compact?: bo
     setIsOpen(true)
     setHasNew(false)
     localStorage.setItem(LS_KEY, new Date().toISOString())
+  }
+
+  function pickHue(clientX: number) {
+    const el = sliderRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    const x = Math.max(0, Math.min(clientX - rect.left, rect.width))
+    const h = Math.round((x / rect.width) * 360)
+    const c = `hsl(${h}, 85%, 52%)`
+    setHue(h)
+    setIsEraser(false)
+    setColor(c)
+    colorRef.current = c
+  }
+
+  function pickFixed(hex: string) {
+    setIsEraser(false)
+    setColor(hex)
+    colorRef.current = hex
+  }
+
+  function activateEraser() {
+    setIsEraser(true)
+    colorRef.current = '#ffffff'
   }
 
   const lastReceived = artworks.find((a) => a.sender_id !== user.id)
@@ -280,19 +308,51 @@ export function CroustiArt({ user, compact = false }: { user: User; compact?: bo
                   </div>
 
                   {/* Palette */}
-                  <div className="flex items-center gap-2 mb-3 flex-wrap">
-                    {COLORS.map((c) => (
-                      <button
-                        key={c}
-                        onClick={() => setColor(c)}
-                        className={`w-7 h-7 rounded-full border-2 transition-transform cursor-pointer ${color === c ? 'scale-125 border-pink-500' : 'border-transparent hover:scale-110'}`}
+                  <div className="mb-3 space-y-2.5">
+                    {/* Slider dégradé hue */}
+                    <div
+                      ref={sliderRef}
+                      className="relative h-7 rounded-full touch-none select-none cursor-crosshair"
+                      style={{ background: 'linear-gradient(to right,hsl(0,85%,52%),hsl(30,85%,52%),hsl(60,85%,52%),hsl(90,85%,52%),hsl(120,85%,52%),hsl(150,85%,52%),hsl(180,85%,52%),hsl(210,85%,52%),hsl(240,85%,52%),hsl(270,85%,52%),hsl(300,85%,52%),hsl(330,85%,52%),hsl(360,85%,52%))' }}
+                      onPointerDown={(e) => { isSliding.current = true; e.currentTarget.setPointerCapture(e.pointerId); pickHue(e.clientX) }}
+                      onPointerMove={(e) => { if (isSliding.current) pickHue(e.clientX) }}
+                      onPointerUp={() => { isSliding.current = false }}
+                      onPointerCancel={() => { isSliding.current = false }}
+                    >
+                      <div
+                        className="absolute top-1/2 w-7 h-7 rounded-full border-[3px] border-white shadow-md pointer-events-none transition-opacity"
                         style={{
-                          backgroundColor: c,
-                          boxShadow: c === '#ffffff' ? 'inset 0 0 0 1px #e5e7eb' : undefined,
+                          left: `${(hue / 360) * 100}%`,
+                          transform: 'translate(-50%, -50%)',
+                          backgroundColor: `hsl(${hue}, 85%, 52%)`,
+                          opacity: isEraser ? 0.35 : 1,
                         }}
-                        aria-label={`Couleur ${c}`}
                       />
-                    ))}
+                    </div>
+
+                    {/* Noir, blanc + gomme */}
+                    <div className="flex items-center gap-2">
+                      {FIXED_COLORS.map(({ hex, label }) => (
+                        <button
+                          key={hex}
+                          onClick={() => pickFixed(hex)}
+                          className={`w-7 h-7 rounded-full border-2 transition-transform cursor-pointer shrink-0
+                            ${!isEraser && color === hex ? 'scale-125 border-pink-500' : hex === '#ffffff' ? 'border-pink-100 hover:scale-110' : 'border-transparent hover:scale-110'}`}
+                          style={{ backgroundColor: hex }}
+                          aria-label={label}
+                        />
+                      ))}
+                      <div className="w-px h-5 bg-pink-100 mx-0.5 shrink-0" aria-hidden />
+                      <button
+                        onClick={activateEraser}
+                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-medium transition-all cursor-pointer shrink-0
+                          ${isEraser ? 'bg-pink-100 border-pink-400 text-pink-600' : 'border-pink-100 text-pink-300 hover:border-pink-300 hover:text-pink-500'}`}
+                        aria-label="Gomme"
+                      >
+                        <Eraser size={12} />
+                        Gomme
+                      </button>
+                    </div>
                   </div>
 
                   {/* Taille + actions */}
