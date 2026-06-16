@@ -140,7 +140,7 @@ export function CoinPot() {
   const isLoading = display === null
 
   return (
-    <div className="glass-card rounded-2xl p-5">
+    <div className="glass-card rounded-3xl p-6">
       <div className="flex items-center justify-between mb-4">
         <h2
           className="text-base font-bold text-amber-700 flex items-center gap-2"
