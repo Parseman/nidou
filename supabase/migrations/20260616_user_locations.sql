@@ -20,3 +20,6 @@ CREATE POLICY "user can insert own location"
 CREATE POLICY "user can update own location"
   ON user_locations FOR UPDATE TO authenticated
   USING (user_id = auth.uid()::text);
+
+-- Activer Realtime pour que chaque partenaire voie la position de l'autre en temps réel
+ALTER PUBLICATION supabase_realtime ADD TABLE user_locations;

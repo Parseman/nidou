@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { MapPin } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../../lib/supabase'
@@ -44,6 +44,9 @@ export function DistanceCard({ user }: { user: User }) {
   const [myAge, setMyAge] = useState<string | null>(null)
   const [partnerAge, setPartnerAge] = useState<string | null>(null)
 
+  // Stocke la dernière position connue pour pouvoir recalculer via Realtime
+  const myPosRef = useRef<{ lat: number; lng: number } | null>(null)
+
   useEffect(() => {
     let cancelled = false
 
@@ -68,37 +71,61 @@ export function DistanceCard({ user }: { user: User }) {
       const mine = rows.find((r) => r.user_id === user.id)
       const partner = rows.find((r) => r.user_id !== user.id)
 
-      if (!pos && !mine) {
+      const myLat = pos?.coords.latitude ?? mine?.lat
+      const myLng = pos?.coords.longitude ?? mine?.lng
+
+      if (myLat == null || myLng == null) {
         setStatus('denied')
         return
       }
 
+      myPosRef.current = { lat: myLat, lng: myLng }
+
       if (!partner) {
         setStatus('no-partner')
-        if (mine) setMyAge(fmtAge(mine.updated_at))
+        setMyAge(pos ? "à l'instant" : mine ? fmtAge(mine.updated_at) : null)
         return
       }
 
-      const myLat = pos?.coords.latitude ?? mine!.lat
-      const myLng = pos?.coords.longitude ?? mine!.lng
       setDistance(haversineKm(myLat, myLng, partner.lat, partner.lng))
-      setMyAge(pos ? "à l'instant" : fmtAge(mine!.updated_at))
+      setMyAge(pos ? "à l'instant" : mine ? fmtAge(mine.updated_at) : null)
       setPartnerAge(fmtAge(partner.updated_at))
       setStatus('ok')
     }
 
+    // Abonnement Realtime : se déclenche dès que le partenaire sauvegarde sa position
+    const channel = supabase
+      .channel('user-locations-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'user_locations' },
+        (payload) => {
+          const row = payload.new as LocationRow
+          if (!row || row.user_id === user.id) return
+          // Position du partenaire reçue
+          const myPos = myPosRef.current
+          if (!myPos) return
+          setDistance(haversineKm(myPos.lat, myPos.lng, row.lat, row.lng))
+          setPartnerAge(fmtAge(row.updated_at))
+          setStatus('ok')
+        }
+      )
+      .subscribe()
+
     if (!('geolocation' in navigator)) {
       fetchAndCompute(null)
-      return
+    } else {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => fetchAndCompute(pos),
+        () => fetchAndCompute(null),
+        { timeout: 10_000, maximumAge: 60_000 },
+      )
     }
 
-    navigator.geolocation.getCurrentPosition(
-      (pos) => fetchAndCompute(pos),
-      () => fetchAndCompute(null),
-      { timeout: 10_000, maximumAge: 60_000 },
-    )
-
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+      supabase.removeChannel(channel)
+    }
   }, [user.id])
 
   return (
@@ -140,7 +167,7 @@ export function DistanceCard({ user }: { user: User }) {
           <p className="text-2xl mb-2">📍</p>
           <p className="text-pink-500 dark:text-pink-300 text-sm font-medium">En attente</p>
           <p className="text-pink-400 dark:text-pink-300 text-xs mt-1 leading-relaxed">
-            Ton partenaire n'a pas encore partagé sa position.
+            Dès que ton partenaire ouvre l'app, la distance s'affiche automatiquement.
           </p>
           {myAge && (
             <p className="text-pink-300 text-xs mt-2">Ta position : {myAge}</p>
