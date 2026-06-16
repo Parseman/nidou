@@ -114,6 +114,7 @@ export function RoomPage({ user, onBack }: Props) {
 
   async function purchaseItem(item: ShopItem): Promise<{ success: boolean; reason?: string }> {
     const buyerName = user.user_metadata?.first_name ?? ''
+
     const { data, error } = await supabase.rpc('purchase_room_upgrade', {
       p_buyer_id:   user.id,
       p_buyer_name: buyerName,
@@ -121,33 +122,25 @@ export function RoomPage({ user, onBack }: Props) {
       p_item_label: item.label,
       p_cost:       item.cost,
     })
+
     if (error || !data?.success) {
       return { success: false, reason: data?.reason ?? 'error' }
     }
 
-    // Mise à jour locale du solde
     setCoins(data.new_coins)
 
-    // Mise à jour de la chambre selon le type d'achat
     const updates: Partial<RoomData> = {}
-
-    if (item.id === 'room_size_1') {
-      updates.room_size_level = 1
-    } else if (item.id === 'room_size_2') {
-      updates.room_size_level = 2
-    } else if (item.id.startsWith('object_')) {
+    if (item.id === 'room_size_1')          updates.room_size_level      = 1
+    else if (item.id === 'room_size_2')     updates.room_size_level      = 2
+    else if (item.id.startsWith('object_')) {
       const objectId = item.id.replace('object_', '')
       updates.unlocked_objects = [...ownRoom.unlocked_objects, objectId]
       updates.objects          = [...ownRoom.objects, objectId]
-    } else if (item.id === 'frame_3') {
-      updates.photo_slots = 3
-    } else if (item.id === 'frame_4') {
-      updates.photo_slots = 4
-    } else if (item.id === 'sticker_slot_1') {
-      updates.custom_sticker_slots = 1
-    } else if (item.id === 'sticker_slot_2') {
-      updates.custom_sticker_slots = 2
     }
+    else if (item.id === 'frame_3')         updates.photo_slots          = 3
+    else if (item.id === 'frame_4')         updates.photo_slots          = 4
+    else if (item.id === 'sticker_slot_1')  updates.custom_sticker_slots = 1
+    else if (item.id === 'sticker_slot_2')  updates.custom_sticker_slots = 2
 
     await saveRoom(updates)
     return { success: true }
