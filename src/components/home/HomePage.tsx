@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import type { User } from '@supabase/supabase-js'
-import { LogOut, Sparkles, Settings } from 'lucide-react'
+import { LogOut, Sparkles, Settings, Home } from 'lucide-react'
 import { NextMeetingCard } from './NextMeetingCard'
 import { CroustiMessage } from './CroustiMessage'
 import { DefiLundi } from './DefiLundi'
@@ -26,9 +26,9 @@ export function HomePage({ user, onSignOut, onGoToPet, onGoToRoom }: Props) {
     <div className="min-h-screen relative">
       {/* Background blobs */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden -z-10" aria-hidden>
-        <div className="absolute -top-60 -right-60 w-[500px] h-[500px] bg-pink-200/30 rounded-full blur-3xl animate-blob" />
-        <div className="absolute top-1/2 -left-40 w-96 h-96 bg-violet-200/25 rounded-full blur-3xl animate-blob-delayed" />
-        <div className="absolute -bottom-40 right-1/3 w-80 h-80 bg-rose-200/20 rounded-full blur-3xl animate-blob-slow" />
+        <div className="absolute -top-60 -right-60 w-[500px] h-[500px] bg-pink-200/30 dark:bg-violet-900/20 rounded-full blur-3xl animate-blob" />
+        <div className="absolute top-1/2 -left-40 w-96 h-96 bg-violet-200/25 dark:bg-violet-900/15 rounded-full blur-3xl animate-blob-delayed" />
+        <div className="absolute -bottom-40 right-1/3 w-80 h-80 bg-rose-200/20 dark:bg-indigo-900/20 rounded-full blur-3xl animate-blob-slow" />
       </div>
 
       {/* Sticky navbar */}
@@ -37,7 +37,7 @@ export function HomePage({ user, onSignOut, onGoToPet, onGoToRoom }: Props) {
           <div className="flex items-center gap-2">
             <span className="text-xl" role="img" aria-label="nid d'oiseau">🪺</span>
             <span
-              className="font-bold text-pink-700 text-lg"
+              className="font-bold text-pink-700 dark:text-pink-200 text-lg"
               style={{ fontFamily: '"Varela Round", sans-serif' }}
             >
               Nidou
@@ -45,22 +45,31 @@ export function HomePage({ user, onSignOut, onGoToPet, onGoToRoom }: Props) {
           </div>
 
           <div className="flex items-center gap-3">
-            <span className="text-pink-400 text-xs hidden sm:block truncate max-w-[180px]">
+            <span className="text-pink-400 dark:text-pink-300 text-xs hidden sm:block truncate max-w-[180px]">
               {user.user_metadata?.first_name ?? user.email}
             </span>
-            <div className="w-px h-4 bg-pink-100 hidden sm:block" aria-hidden />
+            <div className="w-px h-4 bg-pink-100 dark:bg-pink-900 hidden sm:block" aria-hidden />
+            <button
+              onClick={onGoToRoom}
+              className="flex items-center gap-1.5 text-pink-400 dark:text-pink-300 hover:text-pink-600 dark:hover:text-pink-100 transition-colors cursor-pointer text-sm font-medium"
+              aria-label="Ma chambre"
+            >
+              <Home size={15} aria-hidden />
+              <span className="hidden sm:block">Chambre</span>
+            </button>
+            <div className="w-px h-4 bg-pink-100 dark:bg-pink-900" aria-hidden />
             <button
               onClick={() => setSettingsOpen(true)}
-              className="flex items-center gap-1.5 text-pink-400 hover:text-pink-600 transition-colors cursor-pointer text-sm font-medium"
+              className="flex items-center gap-1.5 text-pink-400 dark:text-pink-300 hover:text-pink-600 dark:hover:text-pink-100 transition-colors cursor-pointer text-sm font-medium"
               aria-label="Paramètres"
             >
               <Settings size={15} aria-hidden />
               <span className="hidden sm:block">Paramètres</span>
             </button>
-            <div className="w-px h-4 bg-pink-100" aria-hidden />
+            <div className="w-px h-4 bg-pink-100 dark:bg-pink-900" aria-hidden />
             <button
               onClick={onSignOut}
-              className="flex items-center gap-1.5 text-pink-400 hover:text-pink-600 transition-colors cursor-pointer text-sm font-medium"
+              className="flex items-center gap-1.5 text-pink-400 dark:text-pink-300 hover:text-pink-600 dark:hover:text-pink-100 transition-colors cursor-pointer text-sm font-medium"
               aria-label="Se déconnecter"
             >
               <LogOut size={15} aria-hidden />
@@ -89,7 +98,7 @@ export function HomePage({ user, onSignOut, onGoToPet, onGoToRoom }: Props) {
             </motion.span>
 
             <h1
-              className="text-4xl md:text-5xl font-bold text-pink-700 mb-4 leading-tight"
+              className="text-4xl md:text-5xl font-bold text-pink-700 dark:text-pink-200 mb-4 leading-tight"
               style={{ fontFamily: '"Varela Round", sans-serif' }}
             >
               Bienvenue,&nbsp;
@@ -98,16 +107,16 @@ export function HomePage({ user, onSignOut, onGoToPet, onGoToRoom }: Props) {
               </span>
             </h1>
 
-            <p className="text-pink-400 text-base md:text-lg max-w-sm mx-auto leading-relaxed">
+            <p className="text-pink-400 dark:text-pink-300 text-base md:text-lg max-w-sm mx-auto leading-relaxed">
               Votre espace pour garder la flamme, peu importe les kilomètres.
             </p>
 
             <div className="flex items-center justify-center gap-2 mt-5">
-              <Sparkles size={14} className="text-pink-300" aria-hidden />
-              <span className="text-pink-300 text-xs font-medium">
+              <Sparkles size={14} className="text-pink-300 dark:text-pink-400" aria-hidden />
+              <span className="text-pink-300 dark:text-pink-400 text-xs font-medium">
                 Connecté·e avec succès
               </span>
-              <Sparkles size={14} className="text-pink-300" aria-hidden />
+              <Sparkles size={14} className="text-pink-300 dark:text-pink-400" aria-hidden />
             </div>
           </motion.div>
         </section>
@@ -117,7 +126,6 @@ export function HomePage({ user, onSignOut, onGoToPet, onGoToRoom }: Props) {
           <div className="max-w-3xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-4">
             <NextMeetingCard />
             <DefiLundi user={user} />
-            <CroustiArt user={user} />
           </div>
         </section>
 
@@ -128,55 +136,37 @@ export function HomePage({ user, onSignOut, onGoToPet, onGoToRoom }: Props) {
           </div>
         </section>
 
-        {/* Ma Chambre */}
-        <section className="px-4 pb-6">
-          <div className="max-w-3xl mx-auto">
+        {/* Raccourcis — 3 colonnes */}
+        <section className="px-4 pb-10">
+          <div className="max-w-3xl mx-auto grid grid-cols-3 gap-3">
+            <NidouChatIcon onOpen={onGoToPet} />
+            <CroustiArt user={user} compact />
             <motion.button
               onClick={onGoToRoom}
-              whileHover={{ scale: 1.02, y: -3 }}
+              whileHover={{ scale: 1.03, y: -4 }}
               whileTap={{ scale: 0.97 }}
-              className="w-full glass-card rounded-3xl overflow-hidden cursor-pointer shadow-lg shadow-violet-100/60 focus:outline-none group text-left"
+              className="relative w-full rounded-3xl overflow-hidden cursor-pointer shadow-xl shadow-violet-200/50 focus:outline-none group"
+              style={{ aspectRatio: '1 / 1' }}
               aria-label="Accéder à ma chambre"
             >
-              {/* Gradient de fond */}
-              <div className="relative h-28 bg-gradient-to-br from-violet-100 via-pink-100 to-rose-100 overflow-hidden">
-                {/* Décorations flottantes */}
-                <div className="absolute top-3 right-8 text-4xl opacity-70 group-hover:scale-110 transition-transform duration-500">🛏️</div>
-                <div className="absolute top-5 right-24 text-2xl opacity-50 group-hover:translate-y-[-4px] transition-transform duration-700">🪴</div>
-                <div className="absolute bottom-3 right-14 text-xl opacity-40 group-hover:translate-y-[-3px] transition-transform duration-500 delay-100">💡</div>
-                <div className="absolute -bottom-2 -left-2 w-24 h-24 bg-violet-200/40 rounded-full blur-2xl" />
-                <div className="absolute top-0 right-0 w-32 h-32 bg-pink-200/30 rounded-full blur-2xl" />
-
-                {/* Texte */}
-                <div className="absolute inset-0 flex items-center px-6">
-                  <div>
-                    <p
-                      className="text-violet-700 font-bold text-xl leading-tight"
-                      style={{ fontFamily: '"Varela Round", sans-serif' }}
-                    >
-                      Ma Chambre
-                    </p>
-                    <p className="text-violet-500/80 text-xs mt-1">
-                      Décore et personnalise ton espace 3D ✨
-                    </p>
-                  </div>
-                </div>
+              <div className="absolute inset-0 bg-gradient-to-br from-violet-200 via-pink-100 to-rose-100 group-hover:scale-105 transition-transform duration-500" />
+              <div className="absolute top-4 right-4 text-3xl opacity-70 group-hover:scale-110 transition-transform duration-500">🛏️</div>
+              <div className="absolute top-6 left-4 text-xl opacity-40 group-hover:translate-y-[-3px] transition-transform duration-700">🪴</div>
+              <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent" />
+              <div className="absolute bottom-0 left-0 right-0 px-3 py-3">
+                <p className="text-white font-bold text-sm leading-tight" style={{ fontFamily: '"Varela Round", sans-serif' }}>
+                  Ma Chambre
+                </p>
+                <p className="text-white/70 text-xs">Espace 3D ✨</p>
               </div>
             </motion.button>
-          </div>
-        </section>
-
-        {/* Card Nidou */}
-        <section className="px-4 pb-10">
-          <div className="max-w-xs mx-auto">
-            <NidouChatIcon onOpen={onGoToPet} />
           </div>
         </section>
 
       </main>
 
       <footer className="text-center py-8 px-4">
-        <p className="text-pink-300 text-xs">
+        <p className="text-pink-300 dark:text-pink-400 text-xs">
           Fait avec amour, pour les cœurs qui battent à distance 💕
         </p>
       </footer>

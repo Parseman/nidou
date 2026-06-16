@@ -45,6 +45,30 @@
   }
 }
 
+/* Dark mode overrides */
+html.dark body {
+  background-color: #0e0a1f;
+  color: #fce7f3;
+}
+
+html.dark .glass-card {
+  background: rgba(20, 10, 48, 0.85);
+  border: 1px solid rgba(139, 92, 246, 0.20);
+  box-shadow:
+    0 8px 32px rgba(109, 40, 217, 0.18),
+    0 1px 0 rgba(255, 255, 255, 0.04) inset;
+}
+
+html.dark .input-field {
+  background: rgba(30, 15, 65, 0.75);
+  border-color: rgba(139, 92, 246, 0.28);
+  color: #fce7f3;
+}
+
+html.dark .input-field::placeholder {
+  color: rgba(168, 85, 247, 0.45);
+}
+
 /* Smooth scroll */
 html {
   scroll-behavior: smooth;

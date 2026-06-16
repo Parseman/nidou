@@ -6,6 +6,13 @@
     <link rel="icon" type="image/png" href="/nidou-logo.png" />
     <link rel="apple-touch-icon" href="/nidou-logo.png" />
     <title>Nidou — Votre nid, peu importe la distance</title>
+    <script>
+      ;(function(){
+        var s = localStorage.getItem('nidou_dark_mode')
+        var dark = s === 'true' || (!s && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches)
+        if (dark) document.documentElement.classList.add('dark')
+      })()
+    </script>
     <meta name="description" content="L'application pour les couples à distance. Gardez la flamme, peu importe les kilomètres." />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

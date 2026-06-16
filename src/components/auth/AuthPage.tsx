@@ -59,9 +59,9 @@ function FloatingHearts() {
 function BackgroundBlobs() {
   return (
     <div className="fixed inset-0 pointer-events-none overflow-hidden" aria-hidden>
-      <div className="absolute -top-48 -right-48 w-96 h-96 bg-pink-200/50 rounded-full blur-3xl animate-blob" />
-      <div className="absolute -bottom-48 -left-48 w-[28rem] h-[28rem] bg-violet-200/40 rounded-full blur-3xl animate-blob-delayed" />
-      <div className="absolute top-1/3 left-1/3 w-72 h-72 bg-rose-200/30 rounded-full blur-3xl animate-blob-slow" />
+      <div className="absolute -top-48 -right-48 w-96 h-96 bg-pink-200/50 dark:bg-violet-900/25 rounded-full blur-3xl animate-blob" />
+      <div className="absolute -bottom-48 -left-48 w-[28rem] h-[28rem] bg-violet-200/40 dark:bg-violet-900/20 rounded-full blur-3xl animate-blob-delayed" />
+      <div className="absolute top-1/3 left-1/3 w-72 h-72 bg-rose-200/30 dark:bg-indigo-900/20 rounded-full blur-3xl animate-blob-slow" />
     </div>
   )
 }
@@ -111,12 +111,12 @@ export function AuthPage({ onSignIn }: Props) {
               🪺
             </motion.span>
             <h1
-              className="text-4xl font-bold text-pink-700 tracking-tight"
+              className="text-4xl font-bold text-pink-700 dark:text-pink-200 tracking-tight"
               style={{ fontFamily: '"Varela Round", sans-serif' }}
             >
               Nidou
             </h1>
-            <p className="text-pink-400 mt-2 text-sm font-medium">
+            <p className="text-pink-400 dark:text-pink-300 mt-2 text-sm font-medium">
               Votre nid, peu importe la distance
             </p>
             <div className="mt-4 flex items-center gap-2 justify-center opacity-50">
@@ -135,7 +135,7 @@ export function AuthPage({ onSignIn }: Props) {
             noValidate
           >
             <div>
-              <label htmlFor="email" className="block text-sm font-semibold text-pink-700 mb-2">
+              <label htmlFor="email" className="block text-sm font-semibold text-pink-700 dark:text-pink-200 mb-2">
                 Adresse email
               </label>
               <div className="relative">
@@ -159,7 +159,7 @@ export function AuthPage({ onSignIn }: Props) {
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-semibold text-pink-700 mb-2">
+              <label htmlFor="password" className="block text-sm font-semibold text-pink-700 dark:text-pink-200 mb-2">
                 Mot de passe
               </label>
               <div className="relative">
@@ -223,7 +223,7 @@ export function AuthPage({ onSignIn }: Props) {
           </motion.form>
         </div>
 
-        <p className="text-center text-pink-300 text-xs mt-5">
+        <p className="text-center text-pink-300 dark:text-pink-400 text-xs mt-5">
           Fait avec amour, pour les cœurs qui battent à distance 💕
         </p>
       </motion.div>

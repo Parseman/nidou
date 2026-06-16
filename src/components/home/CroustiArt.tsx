@@ -20,7 +20,7 @@ type Artwork = {
   created_at: string
 }
 
-export function CroustiArt({ user }: { user: User }) {
+export function CroustiArt({ user, compact = false }: { user: User; compact?: boolean }) {
   const [artworks, setArtworks] = useState<Artwork[]>([])
   const [isOpen, setIsOpen] = useState(false)
   const [color, setColor] = useState('#ec4899')
@@ -158,42 +158,75 @@ export function CroustiArt({ user }: { user: User }) {
   return (
     <>
       {/* ── Preview card ── */}
-      <div
-        className="glass-card rounded-3xl overflow-hidden cursor-pointer group relative
-                   hover:shadow-lg hover:shadow-pink-100 transition-all duration-200"
-        onClick={openModal}
-        role="button"
-        aria-label="Ouvrir CroustiArt"
-      >
-        {lastReceived ? (
-          <div className="relative h-40">
-            <img src={lastReceived.image_url} alt="Dernière œuvre" className="w-full h-full object-cover" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-            <div className="absolute bottom-0 left-0 right-0 p-4">
-              <p className="text-white font-bold text-sm" style={{ fontFamily: '"Varela Round", sans-serif' }}>
-                🎨 CroustiArt
-              </p>
-              <p className="text-white/75 text-xs">
-                Dessin de {lastReceived.sender_name ?? 'ton partenaire'}
-              </p>
+      {compact ? (
+        <motion.div
+          className="relative w-full rounded-3xl overflow-hidden cursor-pointer shadow-xl shadow-pink-200/50 group"
+          style={{ aspectRatio: '1 / 1' }}
+          onClick={openModal}
+          whileHover={{ scale: 1.03, y: -4 }}
+          whileTap={{ scale: 0.97 }}
+          role="button"
+          aria-label="Ouvrir CroustiArt"
+        >
+          {lastReceived ? (
+            <img
+              src={lastReceived.image_url}
+              alt="Dernière œuvre"
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            />
+          ) : (
+            <div className="w-full h-full bg-gradient-to-br from-pink-200 via-rose-100 to-violet-100 flex flex-col items-center justify-center gap-2">
+              <span className="text-4xl">🎨</span>
             </div>
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
+          <div className="absolute bottom-0 left-0 right-0 px-3 py-3">
+            <p className="text-white font-bold text-sm leading-tight" style={{ fontFamily: '"Varela Round", sans-serif' }}>
+              CroustiArt
+            </p>
+            <p className="text-white/70 text-xs">🎨 Dessine !</p>
           </div>
-        ) : (
-          <div className="p-6">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="font-bold text-pink-700 text-sm" style={{ fontFamily: '"Varela Round", sans-serif' }}>
-                🎨 CroustiArt
-              </h2>
-              <span className="text-pink-300 text-xs group-hover:text-pink-500 transition-colors">→</span>
+          {hasNew && (
+            <span className="absolute top-3 right-3 w-3 h-3 bg-red-500 rounded-full animate-pulse" />
+          )}
+        </motion.div>
+      ) : (
+        <div
+          className="glass-card rounded-3xl overflow-hidden cursor-pointer group relative
+                     hover:shadow-lg hover:shadow-pink-100 transition-all duration-200"
+          onClick={openModal}
+          role="button"
+          aria-label="Ouvrir CroustiArt"
+        >
+          {lastReceived ? (
+            <div className="relative h-40">
+              <img src={lastReceived.image_url} alt="Dernière œuvre" className="w-full h-full object-cover" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+              <div className="absolute bottom-0 left-0 right-0 p-4">
+                <p className="text-white font-bold text-sm" style={{ fontFamily: '"Varela Round", sans-serif' }}>
+                  🎨 CroustiArt
+                </p>
+                <p className="text-white/75 text-xs">
+                  Dessin de {lastReceived.sender_name ?? 'ton partenaire'}
+                </p>
+              </div>
             </div>
-            <p className="text-pink-400 text-sm">Dessine quelque chose pour ton partenaire !</p>
-          </div>
-        )}
-
-        {hasNew && (
-          <span className="absolute top-3 right-3 w-3 h-3 bg-red-500 rounded-full animate-pulse" />
-        )}
-      </div>
+          ) : (
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="font-bold text-pink-700 text-sm" style={{ fontFamily: '"Varela Round", sans-serif' }}>
+                  🎨 CroustiArt
+                </h2>
+                <span className="text-pink-300 text-xs group-hover:text-pink-500 transition-colors">→</span>
+              </div>
+              <p className="text-pink-400 text-sm">Dessine quelque chose pour ton partenaire !</p>
+            </div>
+          )}
+          {hasNew && (
+            <span className="absolute top-3 right-3 w-3 h-3 bg-red-500 rounded-full animate-pulse" />
+          )}
+        </div>
+      )}
 
       {/* ── Modal ── */}
       <AnimatePresence>

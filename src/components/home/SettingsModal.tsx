@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { User } from '@supabase/supabase-js'
-import { X, Bell, BellOff } from 'lucide-react'
+import { X, Bell, BellOff, Moon, Sun } from 'lucide-react'
 import { registerPush, unregisterPush, getPushEnabled } from '../../lib/pushNotifications'
+import { useTheme } from '../../lib/useTheme'
 
 type Props = {
   open: boolean
@@ -11,6 +12,7 @@ type Props = {
 }
 
 export function SettingsModal({ open, onClose, user }: Props) {
+  const { dark, toggle: toggleDark } = useTheme()
   const [permission, setPermission] = useState<NotificationPermission>('default')
   const [enabled, setEnabled] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -64,37 +66,68 @@ export function SettingsModal({ open, onClose, user }: Props) {
               {/* Header */}
               <div className="flex items-center justify-between mb-6">
                 <h2
-                  className="text-lg font-bold text-pink-700"
+                  className="text-lg font-bold text-pink-700 dark:text-pink-200"
                   style={{ fontFamily: '"Varela Round", sans-serif' }}
                 >
                   ⚙️ Paramètres
                 </h2>
                 <button
                   onClick={onClose}
-                  className="text-pink-300 hover:text-pink-500 transition-colors cursor-pointer"
+                  className="text-pink-300 hover:text-pink-500 dark:text-pink-400 dark:hover:text-pink-200 transition-colors cursor-pointer"
                   aria-label="Fermer"
                 >
                   <X size={18} />
                 </button>
               </div>
 
+              {/* Section apparence */}
+              <div className="mb-4">
+                <p className="text-xs font-semibold text-pink-400 dark:text-pink-300 uppercase tracking-wider mb-3">
+                  Apparence
+                </p>
+                <div className="bg-white/40 dark:bg-purple-950/40 rounded-xl p-4 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    {dark
+                      ? <Moon size={20} className="text-violet-400 shrink-0" />
+                      : <Sun size={20} className="text-amber-400 shrink-0" />
+                    }
+                    <div>
+                      <p className="text-sm font-medium text-pink-700 dark:text-pink-200">Mode nuit</p>
+                      <p className="text-xs text-pink-400 dark:text-pink-300 mt-0.5">
+                        {dark ? 'Activé — thème sombre' : 'Désactivé — thème clair'}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={toggleDark}
+                    aria-label={dark ? 'Désactiver le mode nuit' : 'Activer le mode nuit'}
+                    className={`relative w-11 h-6 rounded-full transition-colors duration-200 shrink-0 cursor-pointer
+                      ${dark ? 'bg-violet-500' : 'bg-pink-200'}`}
+                  >
+                    <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200
+                      ${dark ? 'translate-x-5' : 'translate-x-0'}`}
+                    />
+                  </button>
+                </div>
+              </div>
+
               {/* Section notifications */}
               <div>
-                <p className="text-xs font-semibold text-pink-400 uppercase tracking-wider mb-3">
+                <p className="text-xs font-semibold text-pink-400 dark:text-pink-300 uppercase tracking-wider mb-3">
                   Notifications
                 </p>
 
-                <div className="bg-white/40 rounded-xl p-4 flex items-center justify-between gap-4">
+                <div className="bg-white/40 dark:bg-purple-950/40 rounded-xl p-4 flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
                     {enabled
                       ? <Bell size={20} className="text-violet-500 shrink-0" />
                       : <BellOff size={20} className="text-pink-300 shrink-0" />
                     }
                     <div>
-                      <p className="text-sm font-medium text-pink-700">
+                      <p className="text-sm font-medium text-pink-700 dark:text-pink-200">
                         Notifications push
                       </p>
-                      <p className="text-xs text-pink-400 mt-0.5">
+                      <p className="text-xs text-pink-400 dark:text-pink-300 mt-0.5">
                         {permission === 'denied'
                           ? 'Bloquées — autorise dans les réglages navigateur'
                           : enabled
