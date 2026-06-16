@@ -37,11 +37,12 @@ function getDiff(key: Difficulty | null) {
   return DIFFS.find((d) => d.key === key) ?? DIFFS[1]
 }
 
-function getNextMonday(): Date {
+function getNextWednesday(): Date {
   const d = new Date()
   const day = d.getDay()
-  const diff = day === 0 ? 1 : day === 1 ? 7 : 8 - day
-  d.setDate(d.getDate() + diff)
+  // Aller au lundi suivant (toujours la semaine prochaine si lundi), puis +2 = mercredi
+  const daysToNextMonday = day === 0 ? 1 : day === 1 ? 7 : 8 - day
+  d.setDate(d.getDate() + daysToNextMonday + 2)
   d.setHours(23, 59, 59, 0)
   return d
 }
@@ -90,7 +91,8 @@ export function DefiLundi({ user }: { user: User }) {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const senderName = user.user_metadata?.first_name ?? user.email?.split('@')[0] ?? null
-  const isMonday = new Date().getDay() === 1
+  const dayOfWeek = new Date().getDay()
+  const isWeekStart = dayOfWeek >= 1 && dayOfWeek <= 3 // lundi, mardi, mercredi
 
   const fetchChallenges = async () => {
     const { data } = await supabase
@@ -163,7 +165,7 @@ export function DefiLundi({ user }: { user: User }) {
   const previewChallenge = challengeForMe ?? myChallengeOut
 
   const createChallenge = async () => {
-    if (!title.trim() || submitting || !isMonday) return
+    if (!title.trim() || submitting || !isWeekStart) return
     setSubmitting(true)
     await supabase.from('challenges').insert({
       created_by: user.id,
@@ -171,7 +173,7 @@ export function DefiLundi({ user }: { user: User }) {
       title: title.trim(),
       description: description.trim() || null,
       difficulty,
-      deadline: getNextMonday().toISOString(),
+      deadline: getNextWednesday().toISOString(),
     })
     setTitle('')
     setDescription('')
@@ -203,7 +205,7 @@ export function DefiLundi({ user }: { user: User }) {
         completed_by: user.id,
         completer_name: senderName,
         completed_at: new Date().toISOString(),
-        deadline: challenge.deadline ?? getNextMonday().toISOString(),
+        deadline: challenge.deadline ?? getNextWednesday().toISOString(),
       }).eq('id', challenge.id)
     }
     setSelectedFile(null)
@@ -238,7 +240,7 @@ export function DefiLundi({ user }: { user: User }) {
                    hover:shadow-lg hover:shadow-pink-100 transition-all duration-200"
         onClick={() => setIsOpen(true)}
         role="button"
-        aria-label="Ouvrir le Défi du Lundi"
+        aria-label="Ouvrir le Défi du début de semaine"
       >
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
@@ -247,7 +249,7 @@ export function DefiLundi({ user }: { user: User }) {
               className="font-bold text-pink-700 text-sm"
               style={{ fontFamily: '"Varela Round", sans-serif' }}
             >
-              Défi du Lundi 🏆
+              Défi du début de semaine 🏆
             </h2>
           </div>
           <span className="text-pink-300 text-xs group-hover:text-pink-500 transition-colors">→</span>
@@ -302,7 +304,7 @@ export function DefiLundi({ user }: { user: User }) {
                 <div className="flex items-center gap-2">
                   <span className="text-xl">🏆</span>
                   <h2 className="font-bold text-pink-700" style={{ fontFamily: '"Varela Round", sans-serif' }}>
-                    Défi du Lundi
+                    Défi du début de semaine
                   </h2>
                 </div>
                 <button onClick={() => setIsOpen(false)} className="text-pink-300 hover:text-pink-500 transition-colors cursor-pointer p-1" aria-label="Fermer">
@@ -413,7 +415,7 @@ export function DefiLundi({ user }: { user: User }) {
                       Lancer un défi
                     </p>
                     {!creating ? (
-                      isMonday ? (
+                      isWeekStart ? (
                         <button onClick={() => setCreating(true)} className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-pink-200 rounded-2xl py-6 text-pink-400 hover:border-pink-400 hover:text-pink-600 transition-colors cursor-pointer">
                           <Plus size={18} />
                           <span className="text-sm font-medium">Lancer un nouveau défi</span>
@@ -422,7 +424,7 @@ export function DefiLundi({ user }: { user: User }) {
                         <div className="text-center py-6 px-4">
                           <p className="text-4xl mb-3">📅</p>
                           <p className="text-pink-600 text-sm font-medium mb-1">Rendez-vous lundi !</p>
-                          <p className="text-pink-400 text-xs leading-relaxed">Les défis ne peuvent être lancés que le lundi.</p>
+                          <p className="text-pink-400 text-xs leading-relaxed">Les défis se lancent du lundi au mercredi. La deadline est le mercredi suivant à 23h59.</p>
                         </div>
                       )
                     ) : (

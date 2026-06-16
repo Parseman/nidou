@@ -41,13 +41,31 @@ Deno.serve(async (req) => {
     }
     return new Response('ok', { status: 200 })
   }
+  // Jour courant en heure de Paris
+  const parisDay = new Date().toLocaleDateString('en-US', { weekday: 'long', timeZone: 'Europe/Paris' })
+  const isCreationWindow = ['Monday', 'Tuesday', 'Wednesday'].includes(parisDay)
+
   const { data: challenges } = await supabase
     .from('challenges')
     .select('id, title, status, created_by')
     .in('status', ['pending', 'proof_submitted'])
 
   if (!challenges?.length) {
-    return new Response('Aucun défi en cours', { status: 200 })
+    // Aucun défi actif — rappeler de lancer un défi pendant la fenêtre lun-mer
+    if (!isCreationWindow) return new Response('Aucun défi en cours', { status: 200 })
+    const { data: subs } = await supabase.from('push_subscriptions').select('subscription')
+    if (subs?.length) {
+      await Promise.allSettled(
+        (subs as { subscription: webpush.PushSubscription }[]).map(({ subscription }) =>
+          webpush.sendNotification(subscription, JSON.stringify({
+            title: '🏆 Pas de défi cette semaine !',
+            body: 'Lancez un défi du début de semaine pour pimenter les choses ✨',
+            tag: 'no-challenge-reminder',
+          })).catch(() => null)
+        )
+      )
+    }
+    return new Response('Rappel no-challenge envoyé', { status: 200 })
   }
 
   const { data: subs } = await supabase
