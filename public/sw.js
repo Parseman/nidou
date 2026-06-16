@@ -3,8 +3,8 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     self.registration.showNotification(data.title ?? 'Nidou 🐱', {
       body: data.body,
-      icon: '/nidou-cover.png',
-      badge: '/nidou-cover.png',
+      icon: '/nidou-logo.png',
+      badge: '/nidou-logo.png',
       tag: data.tag ?? 'nidou',
       renotify: true,
     })
