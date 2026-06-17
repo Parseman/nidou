@@ -29,7 +29,7 @@ function fmtTimeLeft(ms: number): string {
   return `${h}h${m > 0 ? ` ${m}m` : ''}`
 }
 
-export function PhotoGame({ user, compact }: { user: User; compact?: boolean }) {
+export function PhotoGame({ user }: { user: User }) {
   const [open, setOpen] = useState(false)
   const [game, setGame] = useState<GameRow | null>(null)
   const [loading, setLoading] = useState(true)

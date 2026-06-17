@@ -148,7 +148,7 @@ export function HomePage({ user, onSignOut, onGoToPet, onGoToRoom }: Props) {
           <div className="max-w-3xl mx-auto grid grid-cols-2 sm:grid-cols-4 gap-3">
             <NidouChatIcon onOpen={onGoToPet} />
             <CroustiArt user={user} compact />
-            <PhotoGame user={user} compact />
+            <PhotoGame user={user} />
             <motion.button
               onClick={onGoToRoom}
               whileHover={{ scale: 1.03, y: -4 }}
