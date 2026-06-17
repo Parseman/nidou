@@ -8,6 +8,7 @@ import { DefiLundi } from './DefiLundi'
 import { NidouChatIcon } from './NidouChat'
 import { SettingsModal } from './SettingsModal'
 import { CoinPot } from './CoinPot'
+import { useStreak } from '../../lib/useStreak'
 import { CroustiArt } from './CroustiArt'
 import { DistanceCard } from './DistanceCard'
 
@@ -22,6 +23,7 @@ type Props = {
 export function HomePage({ user, onSignOut, onGoToPet, onGoToRoom }: Props) {
   const displayName = user.user_metadata?.first_name ?? user.email?.split('@')[0] ?? 'toi'
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const streak = useStreak(user)
 
   return (
     <div className="min-h-screen relative">
@@ -43,6 +45,14 @@ export function HomePage({ user, onSignOut, onGoToPet, onGoToRoom }: Props) {
             >
               Nidou
             </span>
+            {streak !== null && (
+              <span
+                className="flex items-center gap-0.5 text-sm font-bold text-orange-500 dark:text-orange-400"
+                title={`${streak} jour${streak > 1 ? 's' : ''} d'affilée`}
+              >
+                🔥{streak}
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-3">
