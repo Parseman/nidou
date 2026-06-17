@@ -11,6 +11,7 @@ import { CoinPot } from './CoinPot'
 import { useStreak } from '../../lib/useStreak'
 import { CroustiArt } from './CroustiArt'
 import { DistanceCard } from './DistanceCard'
+import { PhotoGame } from './PhotoGame'
 
 
 type Props = {
@@ -142,11 +143,12 @@ export function HomePage({ user, onSignOut, onGoToPet, onGoToRoom }: Props) {
           </div>
         </section>
 
-        {/* Raccourcis — 3 colonnes */}
+        {/* Raccourcis — 2×2 mobile / 4×1 desktop */}
         <section className="px-4 pb-10">
-          <div className="max-w-3xl mx-auto grid grid-cols-3 gap-3">
+          <div className="max-w-3xl mx-auto grid grid-cols-2 sm:grid-cols-4 gap-3">
             <NidouChatIcon onOpen={onGoToPet} />
             <CroustiArt user={user} compact />
+            <PhotoGame user={user} compact />
             <motion.button
               onClick={onGoToRoom}
               whileHover={{ scale: 1.03, y: -4 }}
