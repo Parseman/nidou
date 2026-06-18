@@ -12,6 +12,7 @@ import { useStreak } from '../../lib/useStreak'
 import { CroustiArt } from './CroustiArt'
 import { DistanceCard } from './DistanceCard'
 import { PhotoGame } from './PhotoGame'
+import { BattleGame } from './BattleGame'
 
 
 type Props = {
@@ -143,17 +144,18 @@ export function HomePage({ user, onSignOut, onGoToPet, onGoToRoom }: Props) {
           </div>
         </section>
 
-        {/* Raccourcis — 2×2 mobile / 4×1 desktop */}
+        {/* Raccourcis — 3×2 mobile / 5×1 desktop */}
         <section className="px-4 pb-10">
-          <div className="max-w-3xl mx-auto grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="max-w-3xl mx-auto grid grid-cols-3 sm:grid-cols-5 gap-3">
             <NidouChatIcon onOpen={onGoToPet} />
             <CroustiArt user={user} compact />
             <PhotoGame user={user} />
+            <BattleGame user={user} />
             <motion.button
               onClick={onGoToRoom}
               whileHover={{ scale: 1.03, y: -4 }}
               whileTap={{ scale: 0.97 }}
-              className="relative w-full rounded-3xl overflow-hidden cursor-pointer shadow-xl shadow-violet-200/50 focus:outline-none group"
+              className="relative w-full rounded-3xl overflow-hidden cursor-pointer shadow-xl shadow-violet-200/50 dark:shadow-violet-900/20 focus:outline-none group"
               style={{ aspectRatio: '1 / 1' }}
               aria-label="Accéder à ma chambre"
             >

@@ -62,16 +62,20 @@ src/
       DistanceCard.tsx       # Carte distance physique (géolocalisation + Haversine + Realtime)
       CroustiArt.tsx         # Dessin collaboratif : hue slider dégradé + gomme + 2 couleurs fixes
       PhotoGame.tsx          # Jeu Photo Duel : upload photo sur thème, vote 👍/👎, rotation 200 thèmes
+    BattleGame.tsx         # Jeu Combat : items spawn 3-7h, inventaire, épée/bouclier/cœur, forge enclume, 2 canvas 3D (prisca.glb / cookie.glb)
     pet/
       PetPage.tsx            # Page dédiée Tamagotchi : 3 colonnes (actions | 3D | stats)
 public/
-  nidouchat-v1.glb          # Modèle 3D du chat (Poly Pizza)
+  nidouchat-v1.glb          # Modèle 3D du chat (Poly Pizza) — utilisé dans PetPage
+  prisca.glb                # Modèle 3D chat de Clément (Battle Game, côté gauche)
+  cookie.glb                # Modèle 3D chat de Léona (Battle Game, côté droit)
   nidou-cover.png           # Illustration du chat dans le nid (card home)
   nidou-logo.png            # Logo doré "N" — favicon uniquement (pas dans l'app)
   sw.js                     # Service Worker pour les notifications push
 supabase/
   migrations/               # SQL à exécuter manuellement dans le dashboard Supabase
   functions/
+    notify-battle/          # Push événements Combat : item_spawned, item_claimed, battle_action
     send-push/              # Envoi notif push sur INSERT messages ou challenges (webhook)
     daily-reminder/         # Rappels défis 2×/jour (pg_cron 7h+13h UTC) + check coins chambre
     notify-pet/             # Alerte Discord si stats pet critiques
@@ -217,6 +221,53 @@ RPC `advance_photo_game()` : atomique (FOR UPDATE), avance si `done` ou `active 
 - **Avance atomique** : `advance_photo_game()` utilise `FOR UPDATE` pour éviter la double-avance si les deux users chargent la page simultanément.
 - **Notifications** : edge function `notify-photo-game` appelée depuis le client après chaque action (upload → partner notifié ; voting_ready → les deux ; game_done → les deux).
 
+## Règles métier — Combat ⚔️
+
+- **Spawn items** : `advance_battle_spawn()` RPC (atomique FOR UPDATE), appelé côté client au chargement. Délai aléatoire 3-7h entre chaque item. Types : épée, cœur, bouclier. Ligne unique `battle_spawn id=1`. Quand un item apparaît et `claimed_by IS NULL` → modal automatique. Une fois récupéré, l'autre ne peut plus l'avoir (UPDATE avec `.is('claimed_by', null)` atomique).
+- **Inventaire** : `battle_inventory`, privé (RLS own-only). Types : `sword`, `enhanced_sword`, `heart`, `shield`, `enhanced_shield`.
+- **Forge** : 3 épées → 1 `enhanced_sword` (-5 PV) ; 3 boucliers → 1 `enhanced_shield` (3 charges + riposte).
+- **Combat** : client-side avec mises à jour croisées (RLS UPDATE permet à tout authentifié de modifier n'importe quelle ligne de `battle_state`).
+  - Épée normale vs sans bouclier : -1 PV
+  - Épée améliorée vs sans bouclier : -5 PV
+  - Épée normale vs bouclier normal : 0 dégât, bouclier brisé, +10 XP défenseur
+  - Épée améliorée vs bouclier normal : -4 PV, bouclier brisé
+  - Épée normale vs bouclier amélioré : 0 dégât, -1 PV attaquant (riposte), bouclier perd 1 charge, +10 XP défenseur
+  - Épée améliorée vs bouclier amélioré : 0 dégât, les deux se brisent, +10 XP défenseur
+- **XP** : +20 attaque, +5 soin, +10 blocage (accordé au défenseur lors de l'attaque). Level = `floor(xp/100) + 1`.
+- **HP** : 0-10. Cœur = +1 PV (max 10), +5 XP.
+- **Bouclier actif** : stocké dans `battle_state.shield_type` + `shield_charges` (1 pour normal, 3 pour amélioré). Activation = suppression de l'inventaire + écriture dans battle_state.
+- **Visibilité** : `battle_state` public (HP, XP, bouclier visible des deux). `battle_inventory` privé.
+- **Notifications** : edge function `notify-battle`, appelée depuis le client. Types : `item_spawned`, `item_claimed`, `battle_action`.
+- **Modèles 3D** : `prisca.glb` = Clément, `cookie.glb` = Léona. Attribution par tri de `user_id` : le plus petit alphabétiquement = Prisca. Chaque joueur voit son propre chat à gauche. Noms affichés : "Prisca (Clément)" et "Cookie (Léona)". 2 canvas WebGL indépendants avec `OrbitControls` (zoom + rotation, pas de pan).
+
+### `battle_state`
+| Colonne         | Type        | Notes                                     |
+|-----------------|-------------|-------------------------------------------|
+| user_id         | text PK     | user.id Supabase                          |
+| hp              | integer     | 0-10, PV actuels                          |
+| xp              | integer     | XP total accumulé (level = floor/100 + 1) |
+| shield_type     | text        | 'normal' \| 'enhanced' \| NULL            |
+| shield_charges  | integer     | Charges restantes du bouclier             |
+| updated_at      | timestamptz |                                           |
+
+### `battle_inventory`
+| Colonne    | Type        | Notes                                                        |
+|------------|-------------|--------------------------------------------------------------|
+| id         | uuid PK     |                                                              |
+| user_id    | text        | user.id — RLS own-only                                       |
+| item_type  | text        | sword / enhanced_sword / heart / shield / enhanced_shield    |
+| created_at | timestamptz |                                                              |
+
+### `battle_spawn`
+| Colonne       | Type        | Notes                                        |
+|---------------|-------------|----------------------------------------------|
+| id            | integer PK  | Toujours 1                                   |
+| item_type     | text        | sword / heart / shield                       |
+| spawned_at    | timestamptz |                                              |
+| claimed_by    | text        | user_id ou NULL                              |
+| claimed_at    | timestamptz |                                              |
+| next_spawn_at | timestamptz | spawned_at + 3-7h aléatoire                  |
+
 ## Règles métier — Streak 🔥
 
 - `useStreak(user)` appelé au montage de `HomePage`.
@@ -316,6 +367,7 @@ RPC `advance_photo_game()` : atomique (FOR UPDATE), avance si `done` ou `active 
 9. `20260617_photo_game.sql` — table photo_game + bucket photo-game + RPC advance_photo_game
 10. `20260617_streak_push_cron.sql` — crons 20h+23h streak (remplacer `<SERVICE_ROLE_KEY>`)
 11. `20260616_challenge_reminder_cron.sql` — crons défis 2×/jour (remplacer `<SERVICE_ROLE_KEY>`)
+12. `20260618_battle_game.sql` — tables battle_state, battle_inventory, battle_spawn + RPC advance_battle_spawn
 
 ## Conventions
 
