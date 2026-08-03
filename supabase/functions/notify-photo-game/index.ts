@@ -42,7 +42,8 @@ Deno.serve(async (req) => {
 
   } else if (body.type === 'vote_cast') {
     const verb = body.liked ? 'liké' : 'pas aimé'
-    title = `${body.actor_name ?? 'Ton partenaire'} a ${verb} ta photo !`
+    const actorName = (body.actor_name ?? 'Ton partenaire').replace(/é/g, 'e').replace(/É/g, 'E')
+    title = `${actorName} a ${verb} ta photo !`
     notifBody = "C'est à ton tour de voter sur la sienne."
     tag = 'photo-game-vote-cast'
 
