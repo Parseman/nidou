@@ -237,7 +237,7 @@ RPC `advance_photo_game()` : atomique (FOR UPDATE), avance si `done` ou `active 
 - **HP** : 0-10. Cœur = +1 PV (max 10), +5 XP.
 - **Bouclier actif** : stocké dans `battle_state.shield_type` + `shield_charges` (1 pour normal, 3 pour amélioré). Activation = suppression de l'inventaire + écriture dans battle_state.
 - **Visibilité** : `battle_state` public (HP, XP, bouclier visible des deux). `battle_inventory` privé.
-- **Notifications** : edge function `notify-battle`, appelée depuis le client. Types : `item_spawned`, `item_claimed`, `battle_action`.
+- **Notifications** : edge function `notify-battle`, appelée depuis le client. Types : `item_spawned`, `item_claimed`, `battle_action`. `item_spawned` envoyé par `checkSpawn()` (BattleGame.tsx) uniquement quand `advance_battle_spawn()` retourne `true` (nouvel item réellement apparu à cet appel, évite les doublons si les deux joueurs chargent l'app en même temps) — titre "Item apparu", description "{Item} vient d'apparaître ! Récupère-le avant l'autre."
 - **Modèles 3D** : `prisca.glb` = Clément, `cookie.glb` = Léona. Attribution par tri de `user_id` : le plus petit alphabétiquement = Prisca. Chaque joueur voit son propre chat à gauche. Noms affichés : "Prisca (Clément)" et "Cookie (Léona)". 2 canvas WebGL indépendants avec `OrbitControls` (zoom + rotation, pas de pan).
 
 ### `battle_state`
@@ -368,6 +368,7 @@ RPC `advance_photo_game()` : atomique (FOR UPDATE), avance si `done` ou `active 
 10. `20260617_streak_push_cron.sql` — crons 20h+23h streak (remplacer `<SERVICE_ROLE_KEY>`)
 11. `20260616_challenge_reminder_cron.sql` — crons défis 2×/jour (remplacer `<SERVICE_ROLE_KEY>`)
 12. `20260618_battle_game.sql` — tables battle_state, battle_inventory, battle_spawn + RPC advance_battle_spawn
+13. `20260803_battle_spawn_notify_fix.sql` — `advance_battle_spawn()` renvoie désormais un booléen (nouvel item apparu ou non), pour permettre au client d'envoyer la notif `item_spawned` sans doublon
 
 ## Conventions
 

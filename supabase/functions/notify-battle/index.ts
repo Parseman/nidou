@@ -42,8 +42,8 @@ Deno.serve(async (req) => {
   let targets = subs
 
   if (body.type === 'item_spawned') {
-    title = `🎁 Un objet est apparu sur Nidou !`
-    notifBody = `${ITEM_LABEL[body.item_type ?? ''] ?? 'Objet'} — vite, récupère-le !`
+    title = 'Item apparu'
+    notifBody = `${ITEM_LABEL[body.item_type ?? ''] ?? 'Un objet'} vient d'apparaître ! Récupère-le avant l'autre.`
     tag = 'battle-spawn'
 
   } else if (body.type === 'item_claimed') {

@@ -208,12 +208,15 @@ export function BattleGame({ user }: { user: User }) {
   }, [user.id])
 
   const checkSpawn = useCallback(async () => {
-    await supabase.rpc('advance_battle_spawn')
+    const { data: spawned } = await supabase.rpc('advance_battle_spawn')
     const { data } = await supabase.from('battle_spawn').select('*').eq('id', 1).single()
     if (!data) return
     const s = data as SpawnRow
     setSpawn(s)
     if (!s.claimed_by) setShowItemModal(true)
+    if (spawned) {
+      await sendNotif('item_spawned', { item_type: s.item_type })
+    }
   }, [])
 
   useEffect(() => {
