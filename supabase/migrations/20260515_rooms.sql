@@ -91,8 +91,8 @@ SECURITY DEFINER
 AS $$
 BEGIN
   PERFORM supabase_functions.http_request(
-    'https://xymhisdmffdgarabglne.supabase.co/functions/v1/send-push',
-    'POST',
+    'https://xymhisdmffdgarabglne.supabase.co/functions/v1/send-push'::text,
+    'POST'::text,
     '{"Content-Type":"application/json"}'::jsonb,
     jsonb_build_object(
       'type',   'INSERT',
@@ -104,7 +104,7 @@ BEGIN
         'cost',       NEW.cost
       )
     )::text,
-    '5000'
+    5000
   );
   RETURN NEW;
 END;
