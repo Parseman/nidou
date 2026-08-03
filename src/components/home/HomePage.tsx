@@ -159,9 +159,11 @@ export function HomePage({ user, onSignOut, onGoToPet, onGoToRoom }: Props) {
               style={{ aspectRatio: '1 / 1' }}
               aria-label="Accéder à ma chambre"
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-violet-200 via-pink-100 to-rose-100 group-hover:scale-105 transition-transform duration-500" />
-              <div className="absolute top-4 right-4 text-3xl opacity-70 group-hover:scale-110 transition-transform duration-500">🛏️</div>
-              <div className="absolute top-6 left-4 text-xl opacity-40 group-hover:translate-y-[-3px] transition-transform duration-700">🪴</div>
+              <img
+                src="/room-cover.png"
+                alt="Ma Chambre"
+                className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+              />
               <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent" />
               <div className="absolute bottom-0 left-0 right-0 px-3 py-3">
                 <p className="text-white font-bold text-sm leading-tight" style={{ fontFamily: '"Varela Round", sans-serif' }}>

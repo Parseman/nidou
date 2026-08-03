@@ -427,11 +427,14 @@ export function BattleGame({ user }: { user: User }) {
         style={{ aspectRatio: '1 / 1' }}
         aria-label="Jeu Combat"
       >
-        <div className="absolute inset-0 bg-gradient-to-br from-purple-500 via-violet-500 to-indigo-500 dark:from-purple-900/80 dark:via-violet-900/70 dark:to-indigo-900/60 group-hover:scale-105 transition-transform duration-500" />
+        <img
+          src="/battle-cover.png"
+          alt="Combat"
+          className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+        />
         {hasUnclaimedItem && (
           <div className="absolute top-3 left-3 w-2.5 h-2.5 bg-red-400 rounded-full animate-pulse z-10" />
         )}
-        <div className="absolute top-4 right-4 text-3xl opacity-90 group-hover:scale-110 transition-transform duration-500">⚔️</div>
 
         {/* HP dots */}
         <div className="absolute top-4 left-4 flex gap-0.5 max-w-[calc(100%-3.5rem)]">

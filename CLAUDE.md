@@ -71,6 +71,8 @@ public/
   cookie.glb                # Modèle 3D chat de Léona (Battle Game, côté droit)
   nidou-cover.png           # Illustration du chat dans le nid (card home)
   photo-duel-cover.png      # Image de fond de la card Photo Duel (page d'accueil)
+  battle-cover.png          # Image de fond de la card Combat (page d'accueil)
+  room-cover.png            # Image de fond de la card Ma Chambre (page d'accueil)
   nidou-logo.png            # Logo doré "N" — favicon uniquement (pas dans l'app)
   sw.js                     # Service Worker pour les notifications push
 supabase/
