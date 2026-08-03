@@ -298,7 +298,9 @@ function ActionsPanel({
 export function PetPage({ user: _user, onBack }: { user: User; onBack: () => void }) {
   const [row,  setRow]  = useState<PetRow | null>(null)
   const [anim, setAnim] = useState<AnimState>('idle')
-  const animTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const animTimer  = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const errorTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     supabase
@@ -317,7 +319,11 @@ export function PetPage({ user: _user, onBack }: { user: User; onBack: () => voi
       )
       .subscribe()
 
-    return () => { supabase.removeChannel(channel) }
+    return () => {
+      supabase.removeChannel(channel)
+      if (animTimer.current)  clearTimeout(animTimer.current)
+      if (errorTimer.current) clearTimeout(errorTimer.current)
+    }
   }, [])
 
   const triggerAnim = (a: AnimState) => {
@@ -331,6 +337,7 @@ export function PetPage({ user: _user, onBack }: { user: User; onBack: () => voi
     const { lastKey, animKey } = STAT_CONFIG[stat]
     if (!canAct(row[lastKey], COOLDOWN_MS[stat])) return
 
+    const previous = row
     const current  = calcStats(row)
     const newValue = Math.min(100, current[stat] + BONUS[stat])
     const now      = new Date().toISOString()
@@ -338,10 +345,19 @@ export function PetPage({ user: _user, onBack }: { user: User; onBack: () => voi
     setRow((prev) => prev ? { ...prev, [stat]: newValue, [lastKey]: now } : prev)
     triggerAnim(animKey)
 
-    await supabase
+    const { error } = await supabase
       .from('pet')
       .update({ [stat]: newValue, [lastKey]: now, updated_at: now })
       .eq('id', 1)
+
+    if (error) {
+      setRow(previous)
+      if (animTimer.current) clearTimeout(animTimer.current)
+      setAnim('idle')
+      if (errorTimer.current) clearTimeout(errorTimer.current)
+      setActionError("Échec de la sauvegarde, réessaie.")
+      errorTimer.current = setTimeout(() => setActionError(null), 4000)
+    }
   }
 
   const stats = row ? calcStats(row) : { hunger: 0, hygiene: 0, happiness: 0 }
@@ -394,12 +410,24 @@ export function PetPage({ user: _user, onBack }: { user: User; onBack: () => voi
           <div className="flex flex-col lg:flex-row gap-4 items-stretch" style={{ minHeight: '72vh' }}>
 
             {/* ── Colonne gauche : Actions ── */}
-            <div className="w-full lg:w-64 shrink-0">
+            <div className="w-full lg:w-64 shrink-0 flex flex-col gap-2">
               {row ? (
                 <ActionsPanel row={row} anim={anim} onAct={act} />
               ) : (
                 <div className="glass-card rounded-3xl h-full min-h-48 animate-pulse" />
               )}
+              <AnimatePresence>
+                {actionError && (
+                  <motion.p
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    className="text-xs text-red-500 text-center font-medium px-2"
+                  >
+                    {actionError}
+                  </motion.p>
+                )}
+              </AnimatePresence>
             </div>
 
             {/* ── Colonne centrale : 3D ── */}
