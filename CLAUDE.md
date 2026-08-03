@@ -70,6 +70,7 @@ public/
   prisca.glb                # Modèle 3D chat de Clément (Battle Game, côté gauche)
   cookie.glb                # Modèle 3D chat de Léona (Battle Game, côté droit)
   nidou-cover.png           # Illustration du chat dans le nid (card home)
+  photo-duel-cover.png      # Image de fond de la card Photo Duel (page d'accueil)
   nidou-logo.png            # Logo doré "N" — favicon uniquement (pas dans l'app)
   sw.js                     # Service Worker pour les notifications push
 supabase/
@@ -318,7 +319,7 @@ RPC `advance_photo_game()` : atomique (FOR UPDATE), avance si `done` ou `active 
 - `colorRef` : ref vers la couleur courante (évite les re-renders sur chaque coup de crayon).
 
 ### PhotoGame
-- Card compacte (aspectRatio 1/1) ouvre une modale.
+- Card compacte (aspectRatio 1/1, fond `public/photo-duel-cover.png`) ouvre une modale.
 - Point rouge si action en attente (upload ou vote).
 - Upload via `<input type="file" hidden>` → Storage `photo-game` → update `photo_game`.
 - Vote : détermine `mySlot` (1 ou 2) depuis `photo_1/2_user_id`, écrit dans `vote_2` si slot 1 ou `vote_1` si slot 2.

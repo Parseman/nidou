@@ -213,8 +213,11 @@ export function PhotoGame({ user }: { user: User }) {
         style={{ aspectRatio: '1 / 1' }}
         aria-label="Photo Duel"
       >
-        <div className="absolute inset-0 bg-gradient-to-br from-orange-200 via-amber-100 to-rose-200 dark:from-orange-900/40 dark:via-amber-900/30 dark:to-rose-900/20 group-hover:scale-105 transition-transform duration-500" />
-        <div className="absolute top-4 right-4 text-3xl opacity-70 group-hover:scale-110 transition-transform duration-500">📸</div>
+        <img
+          src="/photo-duel-cover.png"
+          alt="Photo Duel"
+          className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+        />
         {needsAction && (
           <div className="absolute top-3 left-3 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse" />
         )}
