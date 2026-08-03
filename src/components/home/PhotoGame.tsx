@@ -46,7 +46,8 @@ export function PhotoGame({ user }: { user: User }) {
       (g.status === 'active' && Date.now() - new Date(g.started_at).getTime() > THREE_DAYS_MS) ||
       (g.status === 'done' && Date.now() - new Date(g.updated_at).getTime() > THREE_DAYS_MS)
     if (expired) {
-      await supabase.rpc('advance_photo_game')
+      const { data: advanced } = await supabase.rpc('advance_photo_game')
+      if (advanced) await sendNotif('new_theme')
       const { data: fresh } = await supabase.from('photo_game').select('*').eq('id', 1).single()
       if (fresh) setGame(fresh as GameRow)
     } else {
@@ -72,7 +73,10 @@ export function PhotoGame({ user }: { user: User }) {
       const ms = THREE_DAYS_MS - (Date.now() - new Date(baseTime).getTime())
       setTimeLeft(fmtTimeLeft(ms))
       if (ms <= 0) {
-        supabase.rpc('advance_photo_game').then(() => loadGame())
+        supabase.rpc('advance_photo_game').then(({ data: advanced }) => {
+          if (advanced) sendNotif('new_theme')
+          loadGame()
+        })
       }
     }
     tick()

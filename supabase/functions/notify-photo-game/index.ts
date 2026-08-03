@@ -12,7 +12,7 @@ const supabase = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
 )
 
-type NotifType = 'photo_uploaded' | 'partner_uploaded' | 'vote_cast' | 'game_done'
+type NotifType = 'photo_uploaded' | 'partner_uploaded' | 'vote_cast' | 'game_done' | 'new_theme'
 
 type Body = {
   type: NotifType
@@ -50,6 +50,11 @@ Deno.serve(async (req) => {
     title = '🎉 Photo Duel terminé !'
     notifBody = 'Découvrez les votes de votre partenaire.'
     tag = 'photo-game-done'
+
+  } else if (body.type === 'new_theme') {
+    title = 'Photo duel 📸 !'
+    notifBody = 'Viens upload une photo qui répond à la question'
+    tag = 'photo-game-new-theme'
 
   } else {
     return new Response('Type inconnu', { status: 400 })
