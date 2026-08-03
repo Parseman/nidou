@@ -82,6 +82,7 @@ supabase/
     check-pet-push/         # Push si bien-être global < 50 (pg_cron 15min, cooldown 3h)
     check-streak-push/      # Push 20h+23h Paris si user pas connecté aujourd'hui (streak en danger)
     notify-photo-game/      # Push événements Photo Duel : upload, vote dispo, résultats
+    check-photo-game-push/  # Rappels Photo Duel upload/vote en retard (pg_cron matin 7h UTC)
 ```
 
 ## Navigation
@@ -349,7 +350,8 @@ RPC `advance_photo_game()` : atomique (FOR UPDATE), avance si `done` ou `active 
 - **`check-pet-push`** : `--no-verify-jwt`. pg_cron `*/15 * * * *`. Push si bien-être < 50, cooldown 3h.
 - **`daily-reminder`** : `--no-verify-jwt`. pg_cron `0 7,13 * * *` (2×/jour). Rappels défis + check coins chambre.
 - **`check-streak-push`** : `--no-verify-jwt`. pg_cron `0 18,21 * * *` (20h+23h Paris). Push si `last_login_date < today`.
-- **`notify-photo-game`** : `--no-verify-jwt`. Appelée depuis le client. Types : `photo_uploaded` (exclut l'uploader, destinataire inconnu à l'avance), `partner_uploaded` (cible explicitement le premier uploader), `vote_cast` (cible le partenaire dont la photo vient d'être votée), `game_done` (cible le partenaire quand les 2 votes sont là).
+- **`notify-photo-game`** : `--no-verify-jwt`. Appelée depuis le client. Types : `photo_uploaded` (exclut l'uploader, destinataire inconnu à l'avance), `partner_uploaded` (cible explicitement le premier uploader), `vote_cast` (cible le partenaire dont la photo vient d'être votée, prénom sans accents dans le titre), `game_done` (cible le partenaire quand les 2 votes sont là), `new_theme` (broadcast aux deux, envoyé uniquement par le client dont l'appel `advance_photo_game()` a réellement avancé la partie).
+- **`check-photo-game-push`** : `--no-verify-jwt`. pg_cron `0 7 * * *` (le matin). Rappels pour ceux qui n'ont pas encore uploadé (`active`) ou pas encore voté (`voting`) : "Plus que 2 jours..." si 1-2 jours écoulés depuis `started_at`/`updated_at`, "VITE..." si 2-3 jours écoulés. Cible précisément les users manquants (roster via `auth.admin.listUsers()` pour l'upload, `vote_1`/`vote_2` null pour le vote) — n'avance pas la partie, ne fait que rappeler.
 - **iOS** : Web Push nécessite d'ajouter l'app à l'écran d'accueil depuis Safari.
 
 ## Migrations SQL
@@ -369,6 +371,8 @@ RPC `advance_photo_game()` : atomique (FOR UPDATE), avance si `done` ou `active 
 11. `20260616_challenge_reminder_cron.sql` — crons défis 2×/jour (remplacer `<SERVICE_ROLE_KEY>`)
 12. `20260618_battle_game.sql` — tables battle_state, battle_inventory, battle_spawn + RPC advance_battle_spawn
 13. `20260803_battle_spawn_notify_fix.sql` — `advance_battle_spawn()` renvoie désormais un booléen (nouvel item apparu ou non), pour permettre au client d'envoyer la notif `item_spawned` sans doublon
+14. `20260803_photo_game_done_delay.sql` — `advance_photo_game()` attend désormais aussi 3 jours depuis `updated_at` quand `status = 'done'` (avant : avance immédiate)
+15. `20260804_photo_game_reminder_cron.sql` — cron matin (7h UTC) pour `check-photo-game-push` (remplacer `<SERVICE_ROLE_KEY>`)
 
 ## Conventions
 
