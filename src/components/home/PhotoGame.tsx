@@ -42,7 +42,10 @@ export function PhotoGame({ user }: { user: User }) {
     const { data } = await supabase.from('photo_game').select('*').eq('id', 1).single()
     if (!data) { setLoading(false); return }
     const g = data as GameRow
-    if (g.status === 'active' && Date.now() - new Date(g.started_at).getTime() > THREE_DAYS_MS) {
+    const expired =
+      (g.status === 'active' && Date.now() - new Date(g.started_at).getTime() > THREE_DAYS_MS) ||
+      (g.status === 'done' && Date.now() - new Date(g.updated_at).getTime() > THREE_DAYS_MS)
+    if (expired) {
       await supabase.rpc('advance_photo_game')
       const { data: fresh } = await supabase.from('photo_game').select('*').eq('id', 1).single()
       if (fresh) setGame(fresh as GameRow)
@@ -63,15 +66,19 @@ export function PhotoGame({ user }: { user: User }) {
   }, [loadGame])
 
   useEffect(() => {
-    if (!game || game.status !== 'active') { setTimeLeft(''); return }
+    if (!game || (game.status !== 'active' && game.status !== 'done')) { setTimeLeft(''); return }
+    const baseTime = game.status === 'active' ? game.started_at : game.updated_at
     const tick = () => {
-      const ms = THREE_DAYS_MS - (Date.now() - new Date(game.started_at).getTime())
+      const ms = THREE_DAYS_MS - (Date.now() - new Date(baseTime).getTime())
       setTimeLeft(fmtTimeLeft(ms))
+      if (ms <= 0) {
+        supabase.rpc('advance_photo_game').then(() => loadGame())
+      }
     }
     tick()
     const t = setInterval(tick, 60_000)
     return () => clearInterval(t)
-  }, [game?.started_at, game?.status])
+  }, [game?.started_at, game?.updated_at, game?.status, loadGame])
 
   // Ma position (slot 1 ou 2)
   const mySlot = game?.photo_1_user_id === user.id ? 1
@@ -102,7 +109,8 @@ export function PhotoGame({ user }: { user: User }) {
       if (g2.photo_1_user_id === user.id || g2.photo_2_user_id === user.id) return
 
       const useSlot1 = !g2.photo_1_user_id
-      const willComplete = useSlot1 ? !!g2.photo_2_user_id : !!g2.photo_1_user_id
+      const otherUserId = useSlot1 ? g2.photo_2_user_id : g2.photo_1_user_id
+      const willComplete = !!otherUserId
 
       await supabase.from('photo_game').update({
         ...(useSlot1
@@ -112,7 +120,11 @@ export function PhotoGame({ user }: { user: User }) {
         updated_at: new Date().toISOString(),
       }).eq('id', 1)
 
-      await sendNotif(willComplete ? 'voting_ready' : 'photo_uploaded')
+      if (willComplete && otherUserId) {
+        await sendNotif('partner_uploaded', { target_user_id: otherUserId })
+      } else {
+        await sendNotif('photo_uploaded', { exclude_user_id: user.id })
+      }
     } catch (err) {
       console.error(err)
     } finally {
@@ -127,6 +139,7 @@ export function PhotoGame({ user }: { user: User }) {
     try {
       const myVoteField = mySlot === 1 ? 'vote_2' : 'vote_1'
       const partnerVoteField = mySlot === 1 ? 'vote_1' : 'vote_2'
+      const partnerId = mySlot === 1 ? game.photo_2_user_id : game.photo_1_user_id
       const { data: g2 } = await supabase.from('photo_game').select('vote_1, vote_2').eq('id', 1).single()
       const partnerDone = g2 ? (g2 as Record<string, unknown>)[partnerVoteField] !== null : false
       await supabase.from('photo_game').update({
@@ -134,13 +147,26 @@ export function PhotoGame({ user }: { user: User }) {
         ...(partnerDone ? { status: 'done' } : {}),
         updated_at: new Date().toISOString(),
       }).eq('id', 1)
-      if (partnerDone) await sendNotif('game_done')
+      if (partnerId) {
+        if (partnerDone) {
+          await sendNotif('game_done', { target_user_id: partnerId })
+        } else {
+          await sendNotif('vote_cast', {
+            target_user_id: partnerId,
+            actor_name: user.user_metadata?.first_name,
+            liked,
+          })
+        }
+      }
     } finally {
       setVoting(false)
     }
   }
 
-  async function sendNotif(type: string) {
+  async function sendNotif(
+    type: string,
+    opts: { exclude_user_id?: string | null; target_user_id?: string | null; actor_name?: string; liked?: boolean } = {},
+  ) {
     try {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) return
@@ -150,16 +176,9 @@ export function PhotoGame({ user }: { user: User }) {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({
-          type,
-          exclude_user_id: type === 'photo_uploaded' ? user.id : null,
-        }),
+        body: JSON.stringify({ type, ...opts }),
       })
     } catch { /* non-bloquant */ }
-  }
-
-  async function nextTheme() {
-    await supabase.rpc('advance_photo_game')
   }
 
   const theme = THEMES[(game?.theme_index ?? 0) % THEMES.length]
@@ -230,7 +249,7 @@ export function PhotoGame({ user }: { user: User }) {
                       style={{ fontFamily: '"Varela Round", sans-serif' }}>
                       Photo Duel
                     </h2>
-                    {game?.status === 'active' && timeLeft && (
+                    {(game?.status === 'active' || game?.status === 'done') && timeLeft && (
                       <span className="flex items-center gap-1 text-xs text-pink-400 dark:text-pink-300 bg-pink-50 dark:bg-pink-900/30 px-2 py-0.5 rounded-full">
                         <Clock size={10} /> {timeLeft}
                       </span>
@@ -347,15 +366,12 @@ export function PhotoGame({ user }: { user: User }) {
                 </p>
               )}
 
-              {/* Résultats + prochain thème */}
+              {/* Résultats + compte à rebours prochain thème */}
               {game?.status === 'done' && (
                 <div className="text-center mt-2">
-                  <button
-                    onClick={nextTheme}
-                    className="btn-primary flex items-center gap-2 mx-auto px-5 py-2.5 rounded-2xl text-sm font-semibold"
-                  >
-                    <RefreshCw size={15} /> Prochain thème
-                  </button>
+                  <p className="flex items-center justify-center gap-1.5 text-xs text-pink-400 dark:text-pink-300">
+                    <RefreshCw size={12} /> Prochain thème dans {timeLeft || '…'}
+                  </p>
                 </div>
               )}
 

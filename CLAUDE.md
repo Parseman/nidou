@@ -212,14 +212,14 @@ RPC `advance_photo_game()` : atomique (FOR UPDATE), avance si `done` ou `active 
 ## Règles métier — Photo Duel
 
 - **Thèmes** : 200 thèmes dans `src/lib/photoGameThemes.ts`, sélectionné par `theme_index % 200`.
-- **Durée** : 3 jours pour uploader sa photo. Passé ce délai, `advance_photo_game()` est appelé côté client → nouveau thème.
+- **Durée** : 3 jours pour uploader sa photo (`active`, depuis `started_at`) ET 3 jours après la fin de partie (`done`, depuis `updated_at`) avant de passer automatiquement au thème suivant — pas de bouton manuel, un compte à rebours s'affiche et `advance_photo_game()` est appelé côté client dès expiration.
 - **Statuts** :
   - `active` : en attente des photos (max 3 jours)
   - `voting` : les 2 photos sont là, on vote (pas de limite de temps)
-  - `done` : les 2 votes enregistrés → bouton "Prochain thème" visible
+  - `done` : les 2 votes enregistrés → compte à rebours de 3 jours avant le thème suivant (auto)
 - **Votes** : `vote_1` = vote SUR photo_1 par l'uploader de photo_2 ; `vote_2` = inverse.
 - **Avance atomique** : `advance_photo_game()` utilise `FOR UPDATE` pour éviter la double-avance si les deux users chargent la page simultanément.
-- **Notifications** : edge function `notify-photo-game` appelée depuis le client après chaque action (upload → partner notifié ; voting_ready → les deux ; game_done → les deux).
+- **Notifications** : edge function `notify-photo-game` appelée depuis le client après chaque action. Ciblage par `target_user_id` (uniquement le destinataire prévu) sauf `photo_uploaded` où l'identité du partenaire est encore inconnue (utilise `exclude_user_id` à la place). Événements : premier upload → `photo_uploaded` (exclut l'uploader) ; second upload qui complète la paire → `partner_uploaded` (cible le premier uploader, jamais le second) ; vote posé (partie pas encore complète) → `vote_cast` (cible le partenaire, inclut `actor_name`/`liked`) ; second vote qui termine la partie → `game_done` (cible le partenaire).
 
 ## Règles métier — Combat ⚔️
 
@@ -349,7 +349,7 @@ RPC `advance_photo_game()` : atomique (FOR UPDATE), avance si `done` ou `active 
 - **`check-pet-push`** : `--no-verify-jwt`. pg_cron `*/15 * * * *`. Push si bien-être < 50, cooldown 3h.
 - **`daily-reminder`** : `--no-verify-jwt`. pg_cron `0 7,13 * * *` (2×/jour). Rappels défis + check coins chambre.
 - **`check-streak-push`** : `--no-verify-jwt`. pg_cron `0 18,21 * * *` (20h+23h Paris). Push si `last_login_date < today`.
-- **`notify-photo-game`** : `--no-verify-jwt`. Appelée depuis le client. Types : `photo_uploaded` (exclut l'uploader), `voting_ready`, `game_done`.
+- **`notify-photo-game`** : `--no-verify-jwt`. Appelée depuis le client. Types : `photo_uploaded` (exclut l'uploader, destinataire inconnu à l'avance), `partner_uploaded` (cible explicitement le premier uploader), `vote_cast` (cible le partenaire dont la photo vient d'être votée), `game_done` (cible le partenaire quand les 2 votes sont là).
 - **iOS** : Web Push nécessite d'ajouter l'app à l'écran d'accueil depuis Safari.
 
 ## Migrations SQL
