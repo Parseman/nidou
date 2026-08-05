@@ -6,6 +6,9 @@ import * as THREE from 'three'
 import { X } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../../lib/supabase'
+import { awardCoins } from '../../lib/wallet'
+
+const SWORD_ATTACK_REWARD = 10
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -318,6 +321,8 @@ export function BattleGame({ user }: { user: User }) {
         hp: Math.max(0, myState.hp - res.damageToAttacker),
         updated_at: new Date().toISOString(),
       }).eq('user_id', user.id)
+
+      awardCoins(user.id, SWORD_ATTACK_REWARD)
 
       flash(res.message)
       await sendNotif('battle_action', {

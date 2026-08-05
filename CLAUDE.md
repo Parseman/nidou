@@ -50,6 +50,7 @@ src/
   lib/useStreak.ts           # hook streak : incrémente chaque nouveau jour, reset si jour sauté, upsert user_streaks
   lib/photoGameThemes.ts     # tableau THEMES[200] — thèmes du Photo Duel
   lib/photoGameSchedule.ts   # getRoundBoundaries() — calendrier fixe jeudi 00h00 → mardi 23h59 (Europe/Paris, DST-safe)
+  lib/wallet.ts              # awardCoins(userId, amount) — RPC award_coins, crédite la bourse individuelle d'un user
   components/
     auth/AuthPage.tsx        # Formulaire login (email/password)
     home/
@@ -59,7 +60,7 @@ src/
       CroustiMessage.tsx     # Messagerie temps réel (bulle flottante bas-droite)
       NidouChat.tsx          # Card cliquable (image nidou-cover.png) → page pet
       SettingsModal.tsx      # Modale paramètres : toggle notifs push + toggle dark mode
-      CoinPot.tsx            # Carte pot commun (pièces accumulées selon happiness)
+      CoinPot.tsx            # Carte bourse individuelle (pièces accumulées selon happiness + partenaire)
       DistanceCard.tsx       # Carte distance physique (géolocalisation + Haversine + Realtime)
       CroustiArt.tsx         # Dessin collaboratif : hue slider dégradé + gomme + 2 couleurs fixes
       PhotoGame.tsx          # Jeu Photo Duel : upload photo sur thème, vote 👍/👎, rotation 200 thèmes
@@ -105,13 +106,26 @@ supabase/
 | id                    | integer PK  | Toujours 1 (ligne unique)                  |
 | next_meeting_date     | text        | Format YYYY-MM-DD                          |
 | last_meeting_date     | text        | Format YYYY-MM-DD                          |
-| coins                 | integer     | Pot commun, peut être négatif              |
-| last_coin_update_at   | timestamptz | Timestamp du dernier règlement de pièces   |
-| coin_rate             | integer     | +1 ou -1 selon happiness au dernier règlement |
+| coins                 | integer     | **Obsolète** — ancien pot commun, remplacé par `user_wallet` |
+| last_coin_update_at   | timestamptz | **Obsolète**                                |
+| coin_rate             | integer     | **Obsolète**                                |
 | updated_at            | timestamptz |                                            |
 
 RLS : authenticated users can read/write. Upsert avec `id: 1`.
-Realtime : UPDATE subscription (pot commun live).
+Les colonnes coins/last_coin_update_at/coin_rate ne sont plus lues ni écrites par le code (voir `user_wallet` ci-dessous) — conservées telles quelles en base pour éviter une migration destructive.
+
+### `user_wallet`
+| Colonne               | Type        | Notes                                          |
+|------------------------|-------------|------------------------------------------------|
+| user_id               | text PK     | user.id Supabase                                |
+| coins                 | integer     | Solde individuel, peut être négatif             |
+| last_coin_update_at   | timestamptz | Timestamp du dernier règlement ambiant          |
+| coin_rate             | integer     | +1 ou -1 selon happiness du pet au dernier règlement, 0 la nuit (1h-8h) |
+| updated_at            | timestamptz |                                                 |
+
+RLS : SELECT pour tous les authentifiés (affichage de la bourse du partenaire dans `CoinPot.tsx`), INSERT pour sa propre ligne, UPDATE ouvert à tous les authentifiés (les récompenses croisées — ex. défi validé par l'autre joueur — créditent le portefeuille du partenaire, comme `battle_state`).
+Realtime : `postgres_changes` (`*`) — `CoinPot.tsx` distingue sa propre ligne de celle du partenaire via `user_id`.
+RPC `award_coins(p_user_id, p_amount)` : upsert atomique (`INSERT ... ON CONFLICT DO UPDATE SET coins = coins + p_amount`), utilisé par `awardCoins()` (`src/lib/wallet.ts`) pour toutes les récompenses ponctuelles (voir « Règles métier — Bourse individuelle »). Le règlement ambiant (±1/min selon happiness) reste écrit directement par `CoinPot.tsx` via `upsert` sur sa propre ligne (pas de concurrence puisque chaque user n'écrit que sa propre ligne).
 
 ### `messages`
 | Colonne      | Type        | Notes                      |
@@ -292,6 +306,26 @@ RPC `advance_photo_game()` : atomique (FOR UPDATE), avance si `done` ou `active 
 - **Humeur** (`Mood`) : `happy` si moyenne > 65, `sad` si < 30, sinon `normal`
 - Les constantes (`DECAY_PER_HOUR`, `COOLDOWN_MS`, `BONUS`, types `PetRow`/`StatKey`/`AnimState`/`Mood`) sont exportées depuis `PetPage.tsx` et importées dans `NidouChat.tsx`
 
+## Règles métier — Bourse individuelle 🪙
+
+- Remplace l'ancien pot commun (`couple_settings.coins`) : chaque user a sa propre ligne dans `user_wallet`, créditée/débitée indépendamment.
+- **Règlement ambiant** (inchangé dans son principe, juste individualisé) : +1/min si la moyenne des stats du pet (faim/hygiène/bonheur, `calcStats`) est > 50, −1/min sinon, 0 entre 1h et 8h (nuit). Réglé par `CoinPot.tsx` sur la propre ligne de l'utilisateur connecté à chaque montage + transition jour/nuit.
+- **Récompenses ponctuelles** (via `awardCoins()`, `src/lib/wallet.ts` → RPC `award_coins`, atomique) :
+  | Action | Récompense | Fichier |
+  |---|---|---|
+  | Câliner le pet | +5 | `PetPage.tsx` (`act('happiness')`) |
+  | Nourrir le pet | +20 | `PetPage.tsx` (`act('hunger')`) |
+  | Laver le pet | +20 | `PetPage.tsx` (`act('hygiene')`) |
+  | Participation Photo Duel (upload photo) | +50 | `PhotoGame.tsx` (`handleFile`) |
+  | Attaque à l'épée (Combat) | +10 | `BattleGame.tsx` (`handleUseSword`) |
+  | Défi hebdo validé — Facile | +10 | `DefiLundi.tsx` (`validateChallenge` + auto-validation à expiration) |
+  | Défi hebdo validé — Moyen | +20 | idem |
+  | Défi hebdo validé — Dur | +50 | idem |
+  | Défi hebdo validé — Légendaire | +100 | idem |
+- Le défi hebdo crédite `completed_by` (celui qui a relevé le défi), pas `user.id` du validateur — la validation peut donc créditer la bourse du partenaire (RLS `user_wallet_update_all` ouvert, comme `battle_state`).
+- La participation Photo Duel ne récompense que l'upload (premier ou second slot), pas le vote.
+- Pas de récompense pour le vote Photo Duel, le soin (cœur) ou l'activation de bouclier en Combat — seule l'attaque à l'épée en rapporte.
+
 ## Composants — points clés
 
 ### App.tsx
@@ -306,9 +340,11 @@ RPC `advance_photo_game()` : atomique (FOR UPDATE), avance si `done` ou `active 
 - Props : `user`, `onSignOut`, `onGoToPet`, `onGoToRoom`.
 
 ### CoinPot
-- **Règlement** au montage : calcule minutes depuis `last_coin_update_at`, applique `coin_rate`, écrit en base.
-- **Display live** : `display = coins + rate * floor(elapsed_minutes)` — interval 60s sans écrire en base.
-- Happiness > 50 → +1/min (badge vert), < 50 → −1/min (badge rouge). Valeur peut être négative.
+- Affiche la **bourse individuelle** (`user_wallet`) : solde de l'utilisateur courant en grand, solde du partenaire en petit sous un séparateur (lu en lecture seule via la même requête, pas de règlement pour le partenaire).
+- **Règlement** (propre ligne uniquement) au montage : calcule minutes depuis `last_coin_update_at`, applique `coin_rate`, écrit en base via `upsert` sur `user_id`.
+- **Display live** : `display = coins + rate * floor(elapsed_minutes)` — interval 60s sans écrire en base, appliqué aussi bien à sa propre bourse qu'à celle du partenaire (extrapolée depuis son dernier règlement connu).
+- Happiness > 50 → +1/min (badge vert), < 50 → −1/min (badge rouge), 0 la nuit (1h-8h). Valeur peut être négative.
+- Toutes les récompenses ponctuelles (câlin, nourrir, bain, Photo Duel, Combat, défi hebdo) passent par `awardCoins()` (`src/lib/wallet.ts` → RPC `award_coins`), pas par ce composant.
 
 ### SettingsModal
 - Section "Apparence" : toggle dark mode via `useTheme()`.
@@ -386,6 +422,7 @@ RPC `advance_photo_game()` : atomique (FOR UPDATE), avance si `done` ou `active 
 15. `20260804_photo_game_reminder_cron.sql` — cron matin (7h UTC) pour `check-photo-game-push` (remplacer `<SERVICE_ROLE_KEY>`)
 16. `20260805_photo_game_fixed_schedule.sql` — `advance_photo_game()` passe d'un délai flottant (3 jours) à un calendrier fixe : avance dès que `started_at` appartient à une semaine antérieure au jeudi 00h00 Paris courant, quel que soit le statut
 17. `20260805_photo_game_new_theme_cron.sql` — cron `*/15 * * * *` (remplacer `<SERVICE_ROLE_KEY>`) qui appelle `advance_photo_game()` et envoie le push `new_theme` côté serveur si la partie a réellement avancé — le passage au thème suivant ne dépend plus d'un client ouvert au bon moment
+18. `20260806_user_wallet.sql` — table `user_wallet` (bourse individuelle par user) + RLS + RPC `award_coins` (upsert atomique) + realtime ; remplace le pot commun `couple_settings.coins` (colonnes conservées mais plus utilisées)
 
 ## Conventions
 

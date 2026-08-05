@@ -3,8 +3,16 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Trophy, X, Plus, Camera, Check, ThumbsUp, ThumbsDown } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../../lib/supabase'
+import { awardCoins } from '../../lib/wallet'
 
 type Difficulty = 'easy' | 'medium' | 'hard' | 'legendary'
+
+const DIFFICULTY_REWARD: Record<Difficulty, number> = {
+  easy: 10,
+  medium: 20,
+  hard: 50,
+  legendary: 100,
+}
 
 type Challenge = {
   id: string
@@ -111,6 +119,11 @@ export function DefiLundi({ user }: { user: User }) {
       (c) => c.status === 'pending' && c.deadline && new Date(c.deadline) < now
     )
     if (expiredProof.length > 0 || expiredPending.length > 0) {
+      expiredProof.forEach((c) => {
+        if (c.completed_by && c.difficulty) {
+          awardCoins(c.completed_by, DIFFICULTY_REWARD[c.difficulty])
+        }
+      })
       await Promise.all([
         ...expiredProof.map((c) =>
           supabase.from('challenges').update({
@@ -223,6 +236,9 @@ export function DefiLundi({ user }: { user: User }) {
       validated_by: user.id,
       validator_name: senderName,
     }).eq('id', challenge.id)
+    if (accept && challenge.completed_by && challenge.difficulty) {
+      awardCoins(challenge.completed_by, DIFFICULTY_REWARD[challenge.difficulty])
+    }
     setValidating(false)
   }
 

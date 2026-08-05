@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { ArrowLeft, Utensils, Droplets, Heart } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../../lib/supabase'
+import { awardCoins } from '../../lib/wallet'
 
 // ── Constantes ────────────────────────────────────────────────────────────────
 
@@ -18,6 +19,9 @@ export const COOLDOWN_MS = {
 }
 
 export const BONUS = { hunger: 80, hygiene: 80, happiness: 60 }
+
+// Récompense en pièces de la bourse individuelle pour chaque action
+const COIN_REWARD = { hunger: 20, hygiene: 20, happiness: 5 }
 
 const STAT_CONFIG = {
   hunger:    { lastKey: 'last_fed_at'    as const, animKey: 'fed'    as const },
@@ -295,7 +299,7 @@ function ActionsPanel({
 
 // ── Page principale ───────────────────────────────────────────────────────────
 
-export function PetPage({ user: _user, onBack }: { user: User; onBack: () => void }) {
+export function PetPage({ user, onBack }: { user: User; onBack: () => void }) {
   const [row,  setRow]  = useState<PetRow | null>(null)
   const [anim, setAnim] = useState<AnimState>('idle')
   const [actionError, setActionError] = useState<string | null>(null)
@@ -349,6 +353,10 @@ export function PetPage({ user: _user, onBack }: { user: User; onBack: () => voi
       .from('pet')
       .update({ [stat]: newValue, [lastKey]: now, updated_at: now })
       .eq('id', 1)
+
+    if (!error) {
+      awardCoins(user.id, COIN_REWARD[stat])
+    }
 
     if (error) {
       setRow(previous)

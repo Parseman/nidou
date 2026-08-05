@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import type { User } from '@supabase/supabase-js'
 import { supabase } from '../../lib/supabase'
 import { calcStats } from '../pet/PetPage'
 import type { PetRow } from '../pet/PetPage'
@@ -47,23 +48,29 @@ function computeDisplay(s: Settled): number {
   return s.coins + effective * s.rate
 }
 
-export function CoinPot() {
-  const [display, setDisplay] = useState<number | null>(null)
+type WalletRow = {
+  user_id: string
+  coins: number
+  last_coin_update_at: string
+  coin_rate: number
+}
+
+export function CoinPot({ user }: { user: User }) {
+  const [mine, setMine] = useState<number | null>(null)
+  const [partner, setPartner] = useState<number | null>(null)
   const [rate, setRate] = useState(0)
   const [night, setNight] = useState(isNighttime())
-  const settledRef = useRef<Settled | null>(null)
+  const mineRef = useRef<Settled | null>(null)
+  const partnerRef = useRef<Settled | null>(null)
 
   useEffect(() => {
     let cancelled = false
     let wasNight = isNighttime()
 
     async function settle() {
-      const [{ data: pet }, { data: cfg }] = await Promise.all([
+      const [{ data: pet }, { data: wallets }] = await Promise.all([
         supabase.from('pet').select('*').eq('id', 1).single(),
-        supabase.from('couple_settings')
-          .select('coins, last_coin_update_at, coin_rate')
-          .eq('id', 1)
-          .maybeSingle(),
+        supabase.from('user_wallet').select('user_id, coins, last_coin_update_at, coin_rate'),
       ])
 
       if (!pet || cancelled) return
@@ -73,15 +80,19 @@ export function CoinPot() {
       const happinessRate = avg > 50 ? 1 : -1
       const newRate = isNighttime() ? 0 : happinessRate
 
-      const lastAt = cfg?.last_coin_update_at
-        ? new Date(cfg.last_coin_update_at).getTime()
+      const rows = (wallets ?? []) as WalletRow[]
+      const myRow = rows.find((w) => w.user_id === user.id) ?? null
+      const otherRow = rows.find((w) => w.user_id !== user.id) ?? null
+
+      const lastAt = myRow?.last_coin_update_at
+        ? new Date(myRow.last_coin_update_at).getTime()
         : Date.now()
       // On applique happinessRate uniquement sur les minutes hors nuit
       const effective = effectiveMinutes(lastAt, Date.now())
-      const newCoins = (cfg?.coins ?? 0) + effective * happinessRate
+      const newCoins = (myRow?.coins ?? 0) + effective * happinessRate
 
-      await supabase.from('couple_settings').upsert({
-        id: 1,
+      await supabase.from('user_wallet').upsert({
+        user_id: user.id,
         coins: newCoins,
         last_coin_update_at: new Date().toISOString(),
         coin_rate: newRate,
@@ -89,31 +100,46 @@ export function CoinPot() {
 
       if (cancelled) return
       const s: Settled = { coins: newCoins, at: Date.now(), rate: newRate }
-      settledRef.current = s
+      mineRef.current = s
       setRate(newRate)
       setNight(isNighttime())
-      setDisplay(newCoins)
+      setMine(newCoins)
+
+      if (otherRow) {
+        const ps: Settled = {
+          coins: otherRow.coins,
+          at: new Date(otherRow.last_coin_update_at).getTime(),
+          rate: otherRow.coin_rate ?? 0,
+        }
+        partnerRef.current = ps
+        setPartner(computeDisplay(ps))
+      }
     }
 
     settle()
 
     const channel = supabase
-      .channel('coinpot-realtime')
+      .channel('wallet-realtime')
       .on(
         'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'couple_settings' },
+        { event: '*', schema: 'public', table: 'user_wallet' },
         (payload) => {
-          const { coins, last_coin_update_at, coin_rate } = payload.new as Record<string, unknown>
-          if (typeof coins !== 'number' || cancelled) return
+          const row = payload.new as Record<string, unknown>
+          if (!row || typeof row.coins !== 'number' || cancelled) return
           const s: Settled = {
-            coins,
-            at: new Date(last_coin_update_at as string).getTime(),
-            rate: (coin_rate as number) ?? 0,
+            coins: row.coins,
+            at: new Date(row.last_coin_update_at as string).getTime(),
+            rate: (row.coin_rate as number) ?? 0,
           }
-          settledRef.current = s
-          setRate(s.rate)
-          setNight(isNighttime())
-          setDisplay(computeDisplay(s))
+          if (row.user_id === user.id) {
+            mineRef.current = s
+            setRate(s.rate)
+            setNight(isNighttime())
+            setMine(computeDisplay(s))
+          } else {
+            partnerRef.current = s
+            setPartner(computeDisplay(s))
+          }
         }
       )
       .subscribe()
@@ -126,7 +152,8 @@ export function CoinPot() {
         settle()
         return
       }
-      if (settledRef.current) setDisplay(computeDisplay(settledRef.current))
+      if (mineRef.current) setMine(computeDisplay(mineRef.current))
+      if (partnerRef.current) setPartner(computeDisplay(partnerRef.current))
       setNight(nowNight)
     }, 60_000)
 
@@ -135,9 +162,9 @@ export function CoinPot() {
       channel.unsubscribe()
       clearInterval(tick)
     }
-  }, [])
+  }, [user.id])
 
-  const isLoading = display === null
+  const isLoading = mine === null
 
   return (
     <div className="glass-card rounded-3xl p-6">
@@ -146,7 +173,7 @@ export function CoinPot() {
           className="text-base font-bold text-amber-700 flex items-center gap-2"
           style={{ fontFamily: '"Varela Round", sans-serif' }}
         >
-          <span>🪙</span> Pot commun
+          <span>🪙</span> Ma bourse
         </h2>
 
         {!isLoading && (
@@ -170,17 +197,17 @@ export function CoinPot() {
         ) : (
           <AnimatePresence mode="wait">
             <motion.span
-              key={display}
+              key={mine}
               initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 8 }}
               transition={{ duration: 0.25 }}
               className={`text-5xl font-bold tabular-nums ${
-                display >= 0 ? 'text-amber-500' : 'text-red-400'
+                mine >= 0 ? 'text-amber-500' : 'text-red-400'
               }`}
               style={{ fontFamily: '"Varela Round", sans-serif' }}
             >
-              {display.toLocaleString('fr-FR')}
+              {mine.toLocaleString('fr-FR')}
             </motion.span>
           </AnimatePresence>
         )}
@@ -195,6 +222,17 @@ export function CoinPot() {
           ? "Nidou est heureux, les pièces s'accumulent 😸"
           : "Nidou est triste, les pièces s'envolent 😿"}
       </p>
+
+      {partner !== null && (
+        <div className="flex items-center justify-between mt-4 pt-3 border-t border-amber-100">
+          <span className="text-xs text-pink-400">Bourse du partenaire</span>
+          <span className={`text-sm font-bold tabular-nums ${
+            partner >= 0 ? 'text-amber-500' : 'text-red-400'
+          }`}>
+            {partner.toLocaleString('fr-FR')} 🪙
+          </span>
+        </div>
+      )}
     </div>
   )
 }

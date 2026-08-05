@@ -5,6 +5,9 @@ import type { User } from '@supabase/supabase-js'
 import { supabase } from '../../lib/supabase'
 import { THEMES } from '../../lib/photoGameThemes'
 import { getRoundBoundaries } from '../../lib/photoGameSchedule'
+import { awardCoins } from '../../lib/wallet'
+
+const PARTICIPATION_REWARD = 50
 
 type GameRow = {
   id: number
@@ -112,6 +115,8 @@ export function PhotoGame({ user }: { user: User }) {
         ...(willComplete ? { status: 'voting' } : {}),
         updated_at: new Date().toISOString(),
       }).eq('id', 1)
+
+      awardCoins(user.id, PARTICIPATION_REWARD)
 
       if (willComplete && otherUserId) {
         await sendNotif('partner_uploaded', { target_user_id: otherUserId })

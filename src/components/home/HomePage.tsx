@@ -139,7 +139,7 @@ export function HomePage({ user, onSignOut, onGoToPet, onGoToRoom }: Props) {
           <div className="max-w-3xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-4">
             <NextMeetingCard />
             <DefiLundi user={user} />
-            <CoinPot />
+            <CoinPot user={user} />
             <DistanceCard user={user} />
           </div>
         </section>
