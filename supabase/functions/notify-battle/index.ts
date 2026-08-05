@@ -18,7 +18,15 @@ const ITEM_LABEL: Record<string, string> = {
   shield: 'Bouclier 🛡️',
 }
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+}
+
 Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+
   let body: {
     type: string
     actor_name?: string
@@ -34,7 +42,7 @@ Deno.serve(async (req) => {
     .from('push_subscriptions')
     .select('subscription, user_id')
 
-  if (!subs?.length) return new Response('Aucun abonné', { status: 200 })
+  if (!subs?.length) return new Response('Aucun abonné', { status: 200, headers: corsHeaders })
 
   let title = ''
   let notifBody = ''
@@ -74,7 +82,7 @@ Deno.serve(async (req) => {
     tag = 'battle-action'
 
   } else {
-    return new Response('Type inconnu', { status: 400 })
+    return new Response('Type inconnu', { status: 400, headers: corsHeaders })
   }
 
   await Promise.allSettled(
@@ -86,5 +94,5 @@ Deno.serve(async (req) => {
     ),
   )
 
-  return new Response(`"${body.type}" envoyé (${targets.length})`, { status: 200 })
+  return new Response(`"${body.type}" envoyé (${targets.length})`, { status: 200, headers: corsHeaders })
 })

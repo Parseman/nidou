@@ -12,11 +12,23 @@ const supabase = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
 )
 
-const DAY_MS = 24 * 60 * 60 * 1000
+// Calendrier fixe : le tour démarre jeudi 00h00 Paris et se termine (deadline
+// upload/vote) mardi 23h59 Paris. Le mercredi est un jour mort (verrouillé,
+// en attente du reset jeudi) : pas de rappel ce jour-là.
+function daysUntilDeadline(): number | null {
+  const short = new Intl.DateTimeFormat('en-US', { timeZone: 'Europe/Paris', weekday: 'short' }).format(new Date())
+  const dow: Record<string, number> = { Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6, Sun: 7 }
+  const isoDow = dow[short]
+  if (isoDow === undefined || isoDow === 3) return null // mercredi = jour mort, verrouillé
+  return (2 - isoDow + 7) % 7 // mardi=0 (dernier jour), lundi=1, dimanche=2, ...
+}
 
 Deno.serve(async () => {
   const { data: game } = await supabase.from('photo_game').select('*').eq('id', 1).single()
   if (!game) return new Response('Pas de partie', { status: 200 })
+
+  const daysLeft = daysUntilDeadline()
+  if (daysLeft === null) return new Response('Jour mort (mercredi), pas de rappel', { status: 200 })
 
   let title = ''
   let notifBody = ''
@@ -24,14 +36,13 @@ Deno.serve(async () => {
   let missingUserIds: string[] = []
 
   if (game.status === 'active') {
-    const elapsedDays = (Date.now() - new Date(game.started_at).getTime()) / DAY_MS
-    if (elapsedDays >= 2) {
-      title = "VITE, plus qu'un jour !!"
-      notifBody = "Il ne reste qu'un jour pour uploader ta photo du thème !"
+    if (daysLeft === 0) {
+      title = 'VITE, dernier jour !!'
+      notifBody = "Dernier jour pour uploader ta photo du thème, avant minuit !"
       tag = 'photo-game-reminder-upload'
-    } else if (elapsedDays >= 1) {
-      title = 'Plus que 2 jours pour upload...'
-      notifBody = 'Il te reste 2 jours pour uploader ta photo du thème.'
+    } else if (daysLeft === 1) {
+      title = "Plus qu'un jour pour upload..."
+      notifBody = 'Il te reste un jour pour uploader ta photo du thème.'
       tag = 'photo-game-reminder-upload'
     } else {
       return new Response('Trop tôt pour un rappel', { status: 200 })
@@ -42,14 +53,13 @@ Deno.serve(async () => {
     missingUserIds = (users?.users ?? []).map((u) => u.id).filter((id) => !uploaded.has(id))
 
   } else if (game.status === 'voting') {
-    const elapsedDays = (Date.now() - new Date(game.updated_at).getTime()) / DAY_MS
-    if (elapsedDays >= 2) {
+    if (daysLeft === 0) {
       title = 'VITE, viens voter !!'
-      notifBody = 'Ton partenaire attend ton vote sur Photo Duel !'
+      notifBody = 'Dernier jour pour voter sur Photo Duel, avant minuit !'
       tag = 'photo-game-reminder-vote'
-    } else if (elapsedDays >= 1) {
-      title = 'Plus que 2 jours pour voter...'
-      notifBody = 'Il te reste 2 jours pour voter sur Photo Duel.'
+    } else if (daysLeft === 1) {
+      title = "Plus qu'un jour pour voter..."
+      notifBody = 'Il te reste un jour pour voter sur Photo Duel.'
       tag = 'photo-game-reminder-vote'
     } else {
       return new Response('Trop tôt pour un rappel', { status: 200 })

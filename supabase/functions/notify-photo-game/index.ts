@@ -15,15 +15,23 @@ const supabase = createClient(
 type NotifType = 'photo_uploaded' | 'partner_uploaded' | 'vote_cast' | 'game_done' | 'new_theme'
 
 type Body = {
-  type: NotifType
+  type: NotifType | ''
   exclude_user_id?: string | null
   target_user_id?: string | null
   actor_name?: string | null
   liked?: boolean | null
 }
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+}
+
 Deno.serve(async (req) => {
-  let body: Body = { type: 'photo_uploaded' }
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+
+  let body: Body = { type: '' }
   try { body = await req.json() } catch { /* pas de body */ }
 
   let title = ''
@@ -58,7 +66,7 @@ Deno.serve(async (req) => {
     tag = 'photo-game-new-theme'
 
   } else {
-    return new Response('Type inconnu', { status: 400 })
+    return new Response('Type inconnu', { status: 400, headers: corsHeaders })
   }
 
   const { data: subs } = await supabase
@@ -72,7 +80,7 @@ Deno.serve(async (req) => {
     targets = targets.filter((s) => s.user_id !== body.exclude_user_id)
   }
 
-  if (!targets.length) return new Response('Aucun destinataire', { status: 200 })
+  if (!targets.length) return new Response('Aucun destinataire', { status: 200, headers: corsHeaders })
 
   await Promise.allSettled(
     targets.map(({ subscription }) =>
@@ -83,5 +91,5 @@ Deno.serve(async (req) => {
     ),
   )
 
-  return new Response(`"${body.type}" envoyé (${targets.length})`, { status: 200 })
+  return new Response(`"${body.type}" envoyé (${targets.length})`, { status: 200, headers: corsHeaders })
 })
