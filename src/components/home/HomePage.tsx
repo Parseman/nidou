@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import type { User } from '@supabase/supabase-js'
-import { LogOut, Sparkles, Settings, Smartphone } from 'lucide-react'
+import { LogOut, Settings, Smartphone } from 'lucide-react'
 import { NextMeetingCard } from './NextMeetingCard'
 import { CroustiMessage } from './CroustiMessage'
 import { DefiLundi } from './DefiLundi'
@@ -85,24 +85,14 @@ export function HomePage({ user, onSignOut }: Props) {
 
       <main>
         {/* Hero section */}
-        <section className="px-4 pt-12 pb-10 text-center">
+        <section className="px-4 pt-6 pb-4 text-center">
           <motion.div
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
           >
-            <motion.span
-              className="text-6xl inline-block mb-5"
-              animate={{ rotate: [0, -8, 8, -4, 0], scale: [1, 1.05, 1] }}
-              transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
-              role="img"
-              aria-label="nid d'oiseau"
-            >
-              🪺
-            </motion.span>
-
             <h1
-              className="text-4xl md:text-5xl font-bold text-pink-700 dark:text-pink-200 mb-4 leading-tight"
+              className="text-4xl md:text-5xl font-bold text-pink-700 dark:text-pink-200 mb-3 leading-tight"
               style={{ fontFamily: '"Varela Round", sans-serif' }}
             >
               Bienvenue,&nbsp;
@@ -112,21 +102,13 @@ export function HomePage({ user, onSignOut }: Props) {
             </h1>
 
             <p className="text-pink-400 dark:text-pink-300 text-base md:text-lg max-w-sm mx-auto leading-relaxed">
-              Votre espace pour garder la flamme, peu importe les kilomètres.
+              Espace de crousti jeu et crousti défi pour nous !
             </p>
-
-            <div className="flex items-center justify-center gap-2 mt-5">
-              <Sparkles size={14} className="text-pink-300 dark:text-pink-400" aria-hidden />
-              <span className="text-pink-300 dark:text-pink-400 text-xs font-medium">
-                Connecté·e avec succès
-              </span>
-              <Sparkles size={14} className="text-pink-300 dark:text-pink-400" aria-hidden />
-            </div>
           </motion.div>
         </section>
 
         {/* Cards principales */}
-        <section className="px-4 pb-6">
+        <section className="px-4 pb-4">
           <div className="max-w-3xl lg:max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <NextMeetingCard />
             <DefiLundi user={user} />
@@ -136,7 +118,7 @@ export function HomePage({ user, onSignOut }: Props) {
         </section>
 
         {/* Raccourcis — 2×2 mobile / 4×1 tablette, masqué sur PC (accessible via le téléphone) */}
-        <section className="px-4 pb-10 lg:hidden">
+        <section className="px-4 pb-6 lg:hidden">
           <div className="max-w-3xl mx-auto grid grid-cols-2 sm:grid-cols-4 gap-3">
             <NidouChatIcon user={user} />
             <CroustiArt user={user} compact />
@@ -146,7 +128,7 @@ export function HomePage({ user, onSignOut }: Props) {
         </section>
 
         {/* Téléphone — PC uniquement */}
-        <section className="hidden lg:flex justify-center pb-10 px-4">
+        <section className="hidden lg:flex justify-center pb-4 px-4">
           <button
             onClick={() => setPhoneOpen(true)}
             className="glass-card rounded-2xl px-5 py-3 flex items-center gap-2 text-pink-500 dark:text-pink-200 hover:text-pink-700 dark:hover:text-pink-100 transition-colors cursor-pointer text-sm font-medium"
@@ -158,9 +140,9 @@ export function HomePage({ user, onSignOut }: Props) {
 
       </main>
 
-      <footer className="text-center py-8 px-4">
+      <footer className="text-center py-4 px-4">
         <p className="text-pink-300 dark:text-pink-400 text-xs">
-          Fait avec amour, pour les cœurs qui battent à distance 💕
+          💕Site des Crousti'Amoureux tout chaud💕
         </p>
       </footer>
 
