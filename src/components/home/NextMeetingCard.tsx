@@ -97,6 +97,25 @@ export function NextMeetingCard() {
     setData({ next_meeting_date: nextDate || null, last_meeting_date: lastDate || null })
     setSaving(false)
     setEditing(false)
+
+    if (nextDate) {
+      sendNotif(daysRemaining(nextDate))
+    }
+  }
+
+  async function sendNotif(days: number) {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+      await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/notify-meeting-date`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ days }),
+      })
+    } catch { /* non-bloquant */ }
   }
 
   if (data === null) return null
