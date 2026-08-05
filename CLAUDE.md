@@ -115,17 +115,15 @@ RLS : authenticated users can read/write. Upsert avec `id: 1`.
 Les colonnes coins/last_coin_update_at/coin_rate ne sont plus lues ni écrites par le code (voir `user_wallet` ci-dessous) — conservées telles quelles en base pour éviter une migration destructive.
 
 ### `user_wallet`
-| Colonne               | Type        | Notes                                          |
-|------------------------|-------------|------------------------------------------------|
-| user_id               | text PK     | user.id Supabase                                |
-| coins                 | integer     | Solde individuel, peut être négatif             |
-| last_coin_update_at   | timestamptz | Timestamp du dernier règlement ambiant          |
-| coin_rate             | integer     | +1 ou -1 selon happiness du pet au dernier règlement, 0 la nuit (1h-8h) |
-| updated_at            | timestamptz |                                                 |
+| Colonne     | Type        | Notes                                |
+|-------------|-------------|---------------------------------------|
+| user_id     | text PK     | user.id Supabase                      |
+| coins       | integer     | Solde individuel, peut être négatif   |
+| updated_at  | timestamptz |                                       |
 
 RLS : SELECT pour tous les authentifiés (affichage de la bourse du partenaire dans `CoinPot.tsx`), INSERT pour sa propre ligne, UPDATE ouvert à tous les authentifiés (les récompenses croisées — ex. défi validé par l'autre joueur — créditent le portefeuille du partenaire, comme `battle_state`).
 Realtime : `postgres_changes` (`*`) — `CoinPot.tsx` distingue sa propre ligne de celle du partenaire via `user_id`.
-RPC `award_coins(p_user_id, p_amount)` : upsert atomique (`INSERT ... ON CONFLICT DO UPDATE SET coins = coins + p_amount`), utilisé par `awardCoins()` (`src/lib/wallet.ts`) pour toutes les récompenses ponctuelles (voir « Règles métier — Bourse individuelle »). Le règlement ambiant (±1/min selon happiness) reste écrit directement par `CoinPot.tsx` via `upsert` sur sa propre ligne (pas de concurrence puisque chaque user n'écrit que sa propre ligne).
+RPC `award_coins(p_user_id, p_amount)` : upsert atomique (`INSERT ... ON CONFLICT DO UPDATE SET coins = coins + p_amount`), utilisé par `awardCoins()` (`src/lib/wallet.ts`) — **seule** source de mouvement de pièces (voir « Règles métier — Bourse individuelle »). Pas de règlement ambiant : les pièces ne s'accumulent pas passivement, uniquement via des actions.
 
 ### `messages`
 | Colonne      | Type        | Notes                      |
@@ -309,7 +307,7 @@ RPC `advance_photo_game()` : atomique (FOR UPDATE), avance si `done` ou `active 
 ## Règles métier — Bourse individuelle 🪙
 
 - Remplace l'ancien pot commun (`couple_settings.coins`) : chaque user a sa propre ligne dans `user_wallet`, créditée/débitée indépendamment.
-- **Règlement ambiant** (inchangé dans son principe, juste individualisé) : +1/min si la moyenne des stats du pet (faim/hygiène/bonheur, `calcStats`) est > 50, −1/min sinon, 0 entre 1h et 8h (nuit). Réglé par `CoinPot.tsx` sur la propre ligne de l'utilisateur connecté à chaque montage + transition jour/nuit.
+- **Pas d'accumulation passive** : contrairement à l'ancien pot commun, les pièces ne s'accumulent plus toutes seules dans le temps (plus de ±1/min selon happiness du pet) — uniquement des récompenses ponctuelles sur action.
 - **Récompenses ponctuelles** (via `awardCoins()`, `src/lib/wallet.ts` → RPC `award_coins`, atomique) :
   | Action | Récompense | Fichier |
   |---|---|---|
@@ -340,11 +338,9 @@ RPC `advance_photo_game()` : atomique (FOR UPDATE), avance si `done` ou `active 
 - Props : `user`, `onSignOut`, `onGoToPet`, `onGoToRoom`.
 
 ### CoinPot
-- Affiche la **bourse individuelle** (`user_wallet`) : solde de l'utilisateur courant en grand, solde du partenaire en petit sous un séparateur (lu en lecture seule via la même requête, pas de règlement pour le partenaire).
-- **Règlement** (propre ligne uniquement) au montage : calcule minutes depuis `last_coin_update_at`, applique `coin_rate`, écrit en base via `upsert` sur `user_id`.
-- **Display live** : `display = coins + rate * floor(elapsed_minutes)` — interval 60s sans écrire en base, appliqué aussi bien à sa propre bourse qu'à celle du partenaire (extrapolée depuis son dernier règlement connu).
-- Happiness > 50 → +1/min (badge vert), < 50 → −1/min (badge rouge), 0 la nuit (1h-8h). Valeur peut être négative.
-- Toutes les récompenses ponctuelles (câlin, nourrir, bain, Photo Duel, Combat, défi hebdo) passent par `awardCoins()` (`src/lib/wallet.ts` → RPC `award_coins`), pas par ce composant.
+- Affiche la **bourse individuelle** (`user_wallet`) : solde de l'utilisateur courant en grand, solde du partenaire en petit sous un séparateur.
+- Purement en lecture : `select` au montage + subscription Realtime (`postgres_changes` sur `user_wallet`), pas d'écriture depuis ce composant.
+- Aucune accumulation passive : le solde ne bouge que lorsqu'une récompense est créditée ailleurs (câlin, nourrir, bain, Photo Duel, Combat, défi hebdo) via `awardCoins()` (`src/lib/wallet.ts` → RPC `award_coins`).
 
 ### SettingsModal
 - Section "Apparence" : toggle dark mode via `useTheme()`.
@@ -423,6 +419,7 @@ RPC `advance_photo_game()` : atomique (FOR UPDATE), avance si `done` ou `active 
 16. `20260805_photo_game_fixed_schedule.sql` — `advance_photo_game()` passe d'un délai flottant (3 jours) à un calendrier fixe : avance dès que `started_at` appartient à une semaine antérieure au jeudi 00h00 Paris courant, quel que soit le statut
 17. `20260805_photo_game_new_theme_cron.sql` — cron `*/15 * * * *` (remplacer `<SERVICE_ROLE_KEY>`) qui appelle `advance_photo_game()` et envoie le push `new_theme` côté serveur si la partie a réellement avancé — le passage au thème suivant ne dépend plus d'un client ouvert au bon moment
 18. `20260806_user_wallet.sql` — table `user_wallet` (bourse individuelle par user) + RLS + RPC `award_coins` (upsert atomique) + realtime ; remplace le pot commun `couple_settings.coins` (colonnes conservées mais plus utilisées)
+19. `20260806_user_wallet_remove_rate.sql` — retire `last_coin_update_at`/`coin_rate` de `user_wallet` : plus de règlement ambiant, uniquement des récompenses ponctuelles
 
 ## Conventions
 
