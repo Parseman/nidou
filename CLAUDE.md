@@ -54,12 +54,13 @@ src/
   components/
     auth/AuthPage.tsx        # Formulaire login (email/password)
     home/
-      HomePage.tsx           # Layout principal (navbar + streak 🔥, hero, grille 2 cols, grille 2×2/4×1 raccourcis)
+      HomePage.tsx           # Layout principal (navbar + streak 🔥, hero, grille 4 cartes, raccourcis jeux mobile/tablette, bouton téléphone PC)
       NextMeetingCard.tsx    # Compte à rebours + barre de progression
       DefiLundi.tsx          # Défi du début de semaine (lun-mer, deadline mercredi suivant 23h59)
       CroustiMessage.tsx     # Messagerie temps réel (bulle flottante bas-droite)
       NidouChat.tsx          # Card cliquable (image nidou-cover.png) → page pet
       SettingsModal.tsx      # Modale paramètres : toggle notifs push + toggle dark mode
+      PhoneModal.tsx         # Modale « téléphone » (PC uniquement) : mockup de téléphone affichant les jeux en mini-icônes
       CoinPot.tsx            # Carte bourse individuelle (pièces accumulées selon happiness + partenaire)
       DistanceCard.tsx       # Carte distance physique (géolocalisation + Haversine + Realtime)
       CroustiArt.tsx         # Dessin collaboratif : hue slider dégradé + gomme + 2 couleurs fixes
@@ -331,10 +332,16 @@ RPC `advance_photo_game()` : atomique (FOR UPDATE), avance si `done` ou `active 
 
 ### HomePage
 - Navbar : logo 🪺 + "Nidou" + streak 🔥N + Paramètres + Déconnexion.
-- Grille principale 2 colonnes : `NextMeetingCard`, `DefiLundi`, `CoinPot`, `DistanceCard`.
-- Grille raccourcis 2×2 mobile / 4×1 desktop : `NidouChatIcon`, `CroustiArt`, `PhotoGame`, `BattleGame`.
+- Grille principale : `NextMeetingCard`, `DefiLundi`, `CoinPot`, `DistanceCard` — 1 colonne mobile, 2 (`md`), 4 sur la même ligne en PC (`lg:grid-cols-4`, conteneur `lg:max-w-5xl`).
+- Grille raccourcis jeux (`NidouChatIcon`, `CroustiArt`, `PhotoGame`, `BattleGame`) : 2×2 mobile / 4×1 tablette, **masquée en PC** (`lg:hidden`) — sur PC ces jeux ne sont accessibles que via le bouton téléphone (voir `PhoneModal`).
+- Bouton "Ouvrir le téléphone" (icône `Smartphone`) : visible uniquement en PC (`hidden lg:flex`), tout en bas de la page, ouvre `PhoneModal`.
 - `<CroustiMessage>` fixed bas-droite. `<SettingsModal>` déclenché par Paramètres.
 - Props : `user`, `onSignOut`, `onGoToPet`.
+
+### PhoneModal
+- Modale plein écran (overlay + clic dehors pour fermer, comme `SettingsModal`) affichant un mockup de téléphone (bezel + encoche) — **visible uniquement en PC** via le bouton de `HomePage`.
+- Écran du téléphone : grille 2×2 des mêmes composants `NidouChatIcon`, `CroustiArt` (compact), `PhotoGame`, `BattleGame` que la grille raccourcis mobile, en mini-icônes façon écran d'accueil. Chaque icône garde son comportement normal (ouvre sa propre modale plein écran par-dessus le téléphone).
+- ⚠️ Piège realtime : ces 4 composants montent chacun un channel Supabase avec un nom **fixe** en dur (ex. `'photo-game-rt'`). Or `supabase.channel(topic)` renvoie la **même instance** si un channel du même nom existe déjà (`RealtimeClient.channel()`), et rappeler `.on()` sur un channel déjà `subscribe()` **lève une exception synchrone** (`RealtimeChannel.on()` : `cannot add \`type\` callbacks... after \`subscribe()\``). Comme l'app n'a pas d'`ErrorBoundary`, ça fait planter tout React (écran vide) dès qu'une 2e instance du même composant est montée en parallèle (téléphone ouvert alors que la grille raccourcis est aussi montée). **Fix appliqué** : chaque composant génère un `useId()` et l'ajoute au nom du channel (ex. `` `photo-game-rt-${instanceId}` ``) pour que deux instances simultanées n'entrent jamais en collision. Toute nouvelle utilisation en double montage d'un composant à channel réaliste doit suivre le même pattern.
 
 ### CoinPot
 - Affiche la **bourse individuelle** (`user_wallet`) : solde de l'utilisateur courant en grand, solde du partenaire en petit sous un séparateur.

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useId } from 'react'
 import { motion } from 'framer-motion'
 import { supabase } from '../../lib/supabase'
 import { calcStats, canAct, COOLDOWN_MS, type PetRow, type Mood } from '../pet/PetPage'
@@ -19,6 +19,7 @@ function StatDot({ value }: { value: number }) {
 
 export function NidouChatIcon({ onOpen }: { onOpen: () => void }) {
   const [row, setRow] = useState<PetRow | null>(null)
+  const instanceId = useId()
 
   useEffect(() => {
     supabase
@@ -29,7 +30,7 @@ export function NidouChatIcon({ onOpen }: { onOpen: () => void }) {
       .then(({ data }) => { if (data) setRow(data as PetRow) })
 
     const channel = supabase
-      .channel('pet-icon-realtime')
+      .channel(`pet-icon-realtime-${instanceId}`)
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'pet' },
@@ -38,7 +39,7 @@ export function NidouChatIcon({ onOpen }: { onOpen: () => void }) {
       .subscribe()
 
     return () => { supabase.removeChannel(channel) }
-  }, [])
+  }, [instanceId])
 
   const mood       = row ? getMood(row) : 'normal'
   const moodLabel  = mood === 'happy' ? 'Heureux 😸' : mood === 'sad' ? 'Malheureux 😿' : 'Ça va 🐱'

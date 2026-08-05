@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import type { User } from '@supabase/supabase-js'
-import { LogOut, Sparkles, Settings } from 'lucide-react'
+import { LogOut, Sparkles, Settings, Smartphone } from 'lucide-react'
 import { NextMeetingCard } from './NextMeetingCard'
 import { CroustiMessage } from './CroustiMessage'
 import { DefiLundi } from './DefiLundi'
 import { NidouChatIcon } from './NidouChat'
 import { SettingsModal } from './SettingsModal'
+import { PhoneModal } from './PhoneModal'
 import { CoinPot } from './CoinPot'
 import { useStreak } from '../../lib/useStreak'
 import { CroustiArt } from './CroustiArt'
@@ -24,6 +25,7 @@ type Props = {
 export function HomePage({ user, onSignOut, onGoToPet }: Props) {
   const displayName = user.user_metadata?.first_name ?? user.email?.split('@')[0] ?? 'toi'
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [phoneOpen, setPhoneOpen] = useState(false)
   const streak = useStreak(user)
 
   return (
@@ -134,14 +136,25 @@ export function HomePage({ user, onSignOut, onGoToPet }: Props) {
           </div>
         </section>
 
-        {/* Raccourcis — 2×2 mobile / 4×1 desktop */}
-        <section className="px-4 pb-10">
+        {/* Raccourcis — 2×2 mobile / 4×1 tablette, masqué sur PC (accessible via le téléphone) */}
+        <section className="px-4 pb-10 lg:hidden">
           <div className="max-w-3xl mx-auto grid grid-cols-2 sm:grid-cols-4 gap-3">
             <NidouChatIcon onOpen={onGoToPet} />
             <CroustiArt user={user} compact />
             <PhotoGame user={user} />
             <BattleGame user={user} />
           </div>
+        </section>
+
+        {/* Téléphone — PC uniquement */}
+        <section className="hidden lg:flex justify-center pb-10 px-4">
+          <button
+            onClick={() => setPhoneOpen(true)}
+            className="glass-card rounded-2xl px-5 py-3 flex items-center gap-2 text-pink-500 dark:text-pink-200 hover:text-pink-700 dark:hover:text-pink-100 transition-colors cursor-pointer text-sm font-medium"
+          >
+            <Smartphone size={18} aria-hidden />
+            Ouvrir le téléphone
+          </button>
         </section>
 
       </main>
@@ -154,6 +167,7 @@ export function HomePage({ user, onSignOut, onGoToPet }: Props) {
 
       <CroustiMessage user={user} />
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} user={user} />
+      <PhoneModal open={phoneOpen} onClose={() => setPhoneOpen(false)} user={user} onGoToPet={onGoToPet} />
     </div>
   )
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useId } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Upload, ThumbsUp, ThumbsDown, Camera, RefreshCw, Clock } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
@@ -40,6 +40,7 @@ export function PhotoGame({ user }: { user: User }) {
   const [timeLeft, setTimeLeft] = useState('')
   const [locked, setLocked] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
+  const instanceId = useId()
 
   const loadGame = useCallback(async () => {
     const { data } = await supabase.from('photo_game').select('*').eq('id', 1).single()
@@ -50,12 +51,12 @@ export function PhotoGame({ user }: { user: User }) {
   useEffect(() => {
     loadGame()
     const ch = supabase
-      .channel('photo-game-rt')
+      .channel(`photo-game-rt-${instanceId}`)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'photo_game' },
         (p) => setGame(p.new as GameRow))
       .subscribe()
     return () => { supabase.removeChannel(ch) }
-  }, [loadGame])
+  }, [loadGame, instanceId])
 
   useEffect(() => {
     if (!game) {

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef, Suspense } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef, useId, Suspense } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { useGLTF, ContactShadows, OrbitControls } from '@react-three/drei'
@@ -189,6 +189,7 @@ export function BattleGame({ user }: { user: User }) {
   const [claiming, setClaiming] = useState(false)
   const [acting, setActing] = useState(false)
   const [actionMsg, setActionMsg] = useState<string | null>(null)
+  const instanceId = useId()
 
   const myLevel = Math.floor((myState?.xp ?? 0) / 100) + 1
   const partnerLevel = Math.floor((partnerState?.xp ?? 0) / 100) + 1
@@ -234,12 +235,12 @@ export function BattleGame({ user }: { user: User }) {
     })
 
     const ch1 = supabase
-      .channel('battle-state-rt')
+      .channel(`battle-state-rt-${instanceId}`)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'battle_state' }, () => loadStates())
       .subscribe()
 
     const ch2 = supabase
-      .channel('battle-spawn-rt')
+      .channel(`battle-spawn-rt-${instanceId}`)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'battle_spawn' }, (p) => {
         const s = p.new as SpawnRow
         setSpawn(s)
@@ -251,7 +252,7 @@ export function BattleGame({ user }: { user: User }) {
       supabase.removeChannel(ch1)
       supabase.removeChannel(ch2)
     }
-  }, [user.id, loadStates, loadInventory, checkSpawn])
+  }, [user.id, loadStates, loadInventory, checkSpawn, instanceId])
 
   function flash(msg: string) {
     setActionMsg(msg)

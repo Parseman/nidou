@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useId } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Trash2, Send, Eraser } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
@@ -29,6 +29,7 @@ export function CroustiArt({ user, compact = false }: { user: User; compact?: bo
   const [brushSize, setBrushSize] = useState(7)
   const [isSending, setIsSending] = useState(false)
   const [hasNew, setHasNew] = useState(false)
+  const instanceId = useId()
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const isDrawing = useRef(false)
@@ -60,7 +61,7 @@ export function CroustiArt({ user, compact = false }: { user: User; compact?: bo
       })
 
     const channel = supabase
-      .channel('artworks-realtime')
+      .channel(`artworks-realtime-${instanceId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'artworks' },
         (payload) => {
           const a = payload.new as Artwork
@@ -71,7 +72,7 @@ export function CroustiArt({ user, compact = false }: { user: User; compact?: bo
       .subscribe()
 
     return () => { supabase.removeChannel(channel) }
-  }, [user.id])
+  }, [user.id, instanceId])
 
   useEffect(() => {
     if (!isOpen) return
