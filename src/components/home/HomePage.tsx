@@ -126,7 +126,7 @@ export function HomePage({ user, onSignOut, onGoToPet }: Props) {
 
         {/* Cards principales */}
         <section className="px-4 pb-6">
-          <div className="max-w-3xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="max-w-3xl lg:max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <NextMeetingCard />
             <DefiLundi user={user} />
             <CoinPot user={user} />
