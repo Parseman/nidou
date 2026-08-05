@@ -49,6 +49,7 @@ src/
   lib/useTheme.ts            # hook dark mode (lit/écrit localStorage nidou_dark_mode, toggle classe html.dark)
   lib/useStreak.ts           # hook streak : incrémente chaque nouveau jour, reset si jour sauté, upsert user_streaks
   lib/photoGameThemes.ts     # tableau THEMES[200] — thèmes du Photo Duel
+  lib/photoGameSchedule.ts   # getRoundBoundaries() — calendrier fixe jeudi 00h00 → mardi 23h59 (Europe/Paris, DST-safe)
   components/
     auth/AuthPage.tsx        # Formulaire login (email/password)
     home/
@@ -79,6 +80,7 @@ supabase/
   migrations/               # SQL à exécuter manuellement dans le dashboard Supabase
   functions/
     notify-battle/          # Push événements Combat : item_spawned, item_claimed, battle_action
+    notify-meeting-date/    # Push quand la date de prochaine retrouvaille est modifiée
     send-push/              # Envoi notif push sur INSERT messages ou challenges (webhook)
     daily-reminder/         # Rappels défis 2×/jour (pg_cron 7h+13h UTC) + check coins chambre
     notify-pet/             # Alerte Discord si stats pet critiques
@@ -216,14 +218,15 @@ RPC `advance_photo_game()` : atomique (FOR UPDATE), avance si `done` ou `active 
 ## Règles métier — Photo Duel
 
 - **Thèmes** : 200 thèmes dans `src/lib/photoGameThemes.ts`, sélectionné par `theme_index % 200`.
-- **Durée** : 3 jours pour uploader sa photo (`active`, depuis `started_at`) ET 3 jours après la fin de partie (`done`, depuis `updated_at`) avant de passer automatiquement au thème suivant — pas de bouton manuel, un compte à rebours s'affiche et `advance_photo_game()` est appelé côté client dès expiration.
+- **Calendrier fixe** (depuis le 2026-08-05, remplace l'ancien délai flottant de 3 jours) : chaque tour démarre le **jeudi à minuit heure de Paris** et la deadline pour uploader/voter est le **mardi suivant 23h59 heure de Paris**. Le **mercredi est un jour mort** : uploads et votes sont verrouillés côté client (`locked`), en attente du thème suivant qui ne démarre jamais avant le jeudi 00h00 suivant. Logique de calendrier partagée dans `src/lib/photoGameSchedule.ts` (`getRoundBoundaries()`, calcul DST-safe via `Intl` + `Europe/Paris`) côté client, et répliquée nativement en SQL (`AT TIME ZONE 'Europe/Paris'`, `EXTRACT(ISODOW ...)`) dans `advance_photo_game()`.
 - **Statuts** :
-  - `active` : en attente des photos (max 3 jours)
-  - `voting` : les 2 photos sont là, on vote (pas de limite de temps)
-  - `done` : les 2 votes enregistrés → compte à rebours de 3 jours avant le thème suivant (auto)
+  - `active` : en attente des photos — upload possible de jeudi 00h00 à mardi 23h59, verrouillé le mercredi
+  - `voting` : les 2 photos sont là, on vote — même fenêtre (jeudi→mardi 23h59), verrouillé le mercredi
+  - `done` : les 2 votes enregistrés → compte à rebours jusqu'au jeudi 00h00 suivant avant le thème suivant (auto)
+- **Avance atomique** : `advance_photo_game()` (RPC, `FOR UPDATE`) n'avance que si `started_at` appartient à une semaine antérieure au jeudi 00h00 courant (Paris) — évite la double-avance si les deux users chargent la page simultanément, et fonctionne quel que soit le statut (`active` incomplet, `voting`, ou `done`) : un tour non terminé est silencieusement sauté au jeudi suivant.
 - **Votes** : `vote_1` = vote SUR photo_1 par l'uploader de photo_2 ; `vote_2` = inverse.
-- **Avance atomique** : `advance_photo_game()` utilise `FOR UPDATE` pour éviter la double-avance si les deux users chargent la page simultanément.
-- **Notifications** : edge function `notify-photo-game` appelée depuis le client après chaque action. Ciblage par `target_user_id` (uniquement le destinataire prévu) sauf `photo_uploaded` et `new_theme` où les deux joueurs doivent être notifiés (broadcast, aucun `target_user_id`/`exclude_user_id`, sauf pour `photo_uploaded` qui exclut l'uploader). Événements : premier upload → `photo_uploaded` (exclut l'uploader) ; second upload qui complète la paire → `partner_uploaded` (cible le premier uploader, jamais le second) ; vote posé (partie pas encore complète) → `vote_cast` (cible le partenaire, inclut `actor_name`/`liked`) ; second vote qui termine la partie → `game_done` (cible le partenaire) ; passage automatique au thème suivant (expiration `active` ou `done`) → `new_theme` (broadcast aux deux, envoyé uniquement par le client dont l'appel `advance_photo_game()` a réellement fait avancer la partie, pour éviter les doublons si les deux chargent l'app en même temps).
+- **Rappels** (`check-photo-game-push`) : basés sur le jour de la semaine (Paris), pas sur un delta de temps — mardi (dernier jour) → message urgent, lundi (avant-dernier jour) → rappel simple, mercredi → aucun rappel (jour mort).
+- **Notifications** : edge function `notify-photo-game` appelée depuis le client après chaque action. Ciblage par `target_user_id` (uniquement le destinataire prévu) sauf `photo_uploaded` et `new_theme` où les deux joueurs doivent être notifiés (broadcast, aucun `target_user_id`/`exclude_user_id`, sauf pour `photo_uploaded` qui exclut l'uploader). Événements : premier upload → `photo_uploaded` (exclut l'uploader) ; second upload qui complète la paire → `partner_uploaded` (cible le premier uploader, jamais le second) ; vote posé (partie pas encore complète) → `vote_cast` (cible le partenaire, inclut `actor_name`/`liked`) ; second vote qui termine la partie → `game_done` (cible le partenaire) ; passage automatique au thème suivant (jeudi 00h00 franchi) → `new_theme` (broadcast aux deux). Déclenché exclusivement par le cron serveur `photo-game-advance-new-theme` (`*/15 * * * *`) — le client ne fait plus aucun appel à `advance_photo_game()` (retiré volontairement pour que le passage au thème suivant et sa notif ne dépendent jamais du fait que quelqu'un ouvre l'app ; ouvrir l'app ne doit jamais déclencher de notif). `PhotoGame.tsx` se contente de lire l'état courant (`select` + Realtime `postgres_changes` sur `UPDATE`) pour refléter l'avance faite par le cron.
 
 ## Règles métier — Combat ⚔️
 
@@ -322,9 +325,10 @@ RPC `advance_photo_game()` : atomique (FOR UPDATE), avance si `done` ou `active 
 
 ### PhotoGame
 - Card compacte (aspectRatio 1/1, fond `public/photo-duel-cover.png`) ouvre une modale.
-- Point rouge si action en attente (upload ou vote).
+- Point rouge si action en attente (upload ou vote), masqué si `locked` (jour mort du mercredi).
 - Upload via `<input type="file" hidden>` → Storage `photo-game` → update `photo_game`.
 - Vote : détermine `mySlot` (1 ou 2) depuis `photo_1/2_user_id`, écrit dans `vote_2` si slot 1 ou `vote_1` si slot 2.
+- Countdown + verrouillage (`locked`) calculés via `getRoundBoundaries()` (`src/lib/photoGameSchedule.ts`), recalculés à chaque tick (60s) : avant la deadline mardi 23h59 → countdown vers la deadline ; après (mercredi, verrouillé) ou en `done` → countdown vers le jeudi 00h00 suivant, moment où `advance_photo_game()` est appelé côté client.
 
 ### NidouChat.tsx (export : `NidouChatIcon`)
 - Card cliquable avec `public/nidou-cover.png` en image de fond.
@@ -353,9 +357,13 @@ RPC `advance_photo_game()` : atomique (FOR UPDATE), avance si `done` ou `active 
 - **`check-pet-push`** : `--no-verify-jwt`. pg_cron `*/15 * * * *`. Push si bien-être < 50, cooldown 3h.
 - **`daily-reminder`** : `--no-verify-jwt`. pg_cron `0 7,13 * * *` (2×/jour). Rappels défis + check coins chambre.
 - **`check-streak-push`** : `--no-verify-jwt`. pg_cron `0 18,21 * * *` (20h+23h Paris). Push si `last_login_date < today`.
-- **`notify-photo-game`** : `--no-verify-jwt`. Appelée depuis le client. Types : `photo_uploaded` (exclut l'uploader, destinataire inconnu à l'avance), `partner_uploaded` (cible explicitement le premier uploader), `vote_cast` (cible le partenaire dont la photo vient d'être votée, prénom sans accents dans le titre), `game_done` (cible le partenaire quand les 2 votes sont là), `new_theme` (broadcast aux deux, envoyé uniquement par le client dont l'appel `advance_photo_game()` a réellement avancé la partie).
-- **`check-photo-game-push`** : `--no-verify-jwt`. pg_cron `0 7 * * *` (le matin). Rappels pour ceux qui n'ont pas encore uploadé (`active`) ou pas encore voté (`voting`) : "Plus que 2 jours..." si 1-2 jours écoulés depuis `started_at`/`updated_at`, "VITE..." si 2-3 jours écoulés. Cible précisément les users manquants (roster via `auth.admin.listUsers()` pour l'upload, `vote_1`/`vote_2` null pour le vote) — n'avance pas la partie, ne fait que rappeler.
+- **`notify-battle`** : `--no-verify-jwt`. Appelée depuis le client (`BattleGame.tsx`). Types : `item_spawned`, `item_claimed`, `battle_action`.
+- **`notify-photo-game`** : `--no-verify-jwt`. Appelée depuis le client pour tous les types sauf `new_theme`, qui ne vient plus que du cron serveur. Types : `photo_uploaded` (exclut l'uploader, destinataire inconnu à l'avance), `partner_uploaded` (cible explicitement le premier uploader), `vote_cast` (cible le partenaire dont la photo vient d'être votée, prénom sans accents dans le titre), `game_done` (cible le partenaire quand les 2 votes sont là), `new_theme` (broadcast aux deux, envoyé uniquement par le cron `photo-game-advance-new-theme` — le client n'appelle plus jamais `advance_photo_game()`, pour garantir qu'ouvrir l'app ne déclenche jamais cette notif).
+- **`check-photo-game-push`** : `--no-verify-jwt`. pg_cron `0 7 * * *` (le matin). Rappels pour ceux qui n'ont pas encore uploadé (`active`) ou pas encore voté (`voting`), basés sur le jour de la semaine (Paris) : lundi → "Plus qu'un jour...", mardi (dernier jour) → "VITE...", mercredi → aucun rappel (jour mort, verrouillé). Cible précisément les users manquants (roster via `auth.admin.listUsers()` pour l'upload, `vote_1`/`vote_2` null pour le vote) — n'avance pas la partie, ne fait que rappeler.
+- **`photo-game-advance-new-theme`** (pg_cron, `*/15 * * * *`, pas une edge function) : seul déclencheur de l'avance de partie. Appelle `advance_photo_game()` puis POST directement vers `notify-photo-game` (`type: new_theme`) via `net.http_post` si la partie a réellement avancé. Le client (`PhotoGame.tsx`) ne fait plus cet appel lui-même (retiré volontairement) : il se contente de lire l'état via `select` + Realtime.
+- **`notify-meeting-date`** : appelée depuis le client (`NextMeetingCard.tsx`) après un `save()` réussi avec une `next_meeting_date` définie. Broadcast aux deux users (y compris l'auteur de la modification). Titre "Date mise à jour !", corps "Plus que X jours avant de se revoir..." (calculé côté client avec `daysRemaining()`, cas particuliers pour 0 et négatif).
 - **iOS** : Web Push nécessite d'ajouter l'app à l'écran d'accueil depuis Safari.
+- **Convention fonctions appelées depuis le client** (`notify-battle`, `notify-photo-game`, `notify-meeting-date` — fetch direct avec header `Authorization` custom, pas `supabase.functions.invoke`) : toujours déployer avec `--no-verify-jwt`. Sans ce flag, la gateway Supabase exige un JWT valide même sur le preflight CORS (`OPTIONS`, qui n'a jamais de header `Authorization`) et le rejette avant que la fonction ne s'exécute — le `fetch` échoue silencieusement côté client (catché en `non-bloquant`), sans notif ni erreur visible. Chaque fonction gère aussi explicitement `OPTIONS` (early return avec headers `Access-Control-Allow-*`) et n'a **jamais** de valeur par défaut correspondant à un vrai type de notif (le fallback doit tomber dans la branche "Type inconnu" / un guard de méthode, sinon un `OPTIONS` ou un body vide déclenche un vrai push).
 
 ## Migrations SQL
 
@@ -376,6 +384,8 @@ RPC `advance_photo_game()` : atomique (FOR UPDATE), avance si `done` ou `active 
 13. `20260803_battle_spawn_notify_fix.sql` — `advance_battle_spawn()` renvoie désormais un booléen (nouvel item apparu ou non), pour permettre au client d'envoyer la notif `item_spawned` sans doublon
 14. `20260803_photo_game_done_delay.sql` — `advance_photo_game()` attend désormais aussi 3 jours depuis `updated_at` quand `status = 'done'` (avant : avance immédiate)
 15. `20260804_photo_game_reminder_cron.sql` — cron matin (7h UTC) pour `check-photo-game-push` (remplacer `<SERVICE_ROLE_KEY>`)
+16. `20260805_photo_game_fixed_schedule.sql` — `advance_photo_game()` passe d'un délai flottant (3 jours) à un calendrier fixe : avance dès que `started_at` appartient à une semaine antérieure au jeudi 00h00 Paris courant, quel que soit le statut
+17. `20260805_photo_game_new_theme_cron.sql` — cron `*/15 * * * *` (remplacer `<SERVICE_ROLE_KEY>`) qui appelle `advance_photo_game()` et envoie le push `new_theme` côté serveur si la partie a réellement avancé — le passage au thème suivant ne dépend plus d'un client ouvert au bon moment
 
 ## Conventions
 
