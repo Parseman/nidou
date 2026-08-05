@@ -74,7 +74,6 @@ public/
   nidou-cover.png           # Illustration du chat dans le nid (card home)
   photo-duel-cover.png      # Image de fond de la card Photo Duel (page d'accueil)
   battle-cover.png          # Image de fond de la card Combat (page d'accueil)
-  room-cover.png            # Image de fond de la card Ma Chambre (page d'accueil)
   nidou-logo.png            # Logo doré "N" — favicon uniquement (pas dans l'app)
   sw.js                     # Service Worker pour les notifications push
 supabase/
@@ -83,7 +82,7 @@ supabase/
     notify-battle/          # Push événements Combat : item_spawned, item_claimed, battle_action
     notify-meeting-date/    # Push quand la date de prochaine retrouvaille est modifiée
     send-push/              # Envoi notif push sur INSERT messages ou challenges (webhook)
-    daily-reminder/         # Rappels défis 2×/jour (pg_cron 7h+13h UTC) + check coins chambre
+    daily-reminder/         # Rappels défis 2×/jour (pg_cron 7h+13h UTC)
     notify-pet/             # Alerte Discord si stats pet critiques
     check-pet-push/         # Push si bien-être global < 50 (pg_cron 15min, cooldown 3h)
     check-streak-push/      # Push 20h+23h Paris si user pas connecté aujourd'hui (streak en danger)
@@ -331,11 +330,11 @@ RPC `advance_photo_game()` : atomique (FOR UPDATE), avance si `done` ou `active 
 - Au login, si `Notification.permission === 'granted'`, appelle `registerPush` silencieusement.
 
 ### HomePage
-- Navbar : logo 🪺 + "Nidou" + streak 🔥N + bouton Chambre + Paramètres + Déconnexion.
+- Navbar : logo 🪺 + "Nidou" + streak 🔥N + Paramètres + Déconnexion.
 - Grille principale 2 colonnes : `NextMeetingCard`, `DefiLundi`, `CoinPot`, `DistanceCard`.
-- Grille raccourcis 2×2 mobile / 4×1 desktop : `NidouChatIcon`, `CroustiArt`, `PhotoGame`, `Chambre`.
+- Grille raccourcis 2×2 mobile / 4×1 desktop : `NidouChatIcon`, `CroustiArt`, `PhotoGame`, `BattleGame`.
 - `<CroustiMessage>` fixed bas-droite. `<SettingsModal>` déclenché par Paramètres.
-- Props : `user`, `onSignOut`, `onGoToPet`, `onGoToRoom`.
+- Props : `user`, `onSignOut`, `onGoToPet`.
 
 ### CoinPot
 - Affiche la **bourse individuelle** (`user_wallet`) : solde de l'utilisateur courant en grand, solde du partenaire en petit sous un séparateur.
@@ -387,7 +386,7 @@ RPC `advance_photo_game()` : atomique (FOR UPDATE), avance si `done` ou `active 
 - **Table `push_subscriptions`** : une ligne par appareil. RLS : chaque user gère ses propres lignes.
 - **`send-push`** : `--no-verify-jwt`. Appelée par triggers Postgres (INSERT messages + challenges).
 - **`check-pet-push`** : `--no-verify-jwt`. pg_cron `*/15 * * * *`. Push si bien-être < 50, cooldown 3h.
-- **`daily-reminder`** : `--no-verify-jwt`. pg_cron `0 7,13 * * *` (2×/jour). Rappels défis + check coins chambre.
+- **`daily-reminder`** : `--no-verify-jwt`. pg_cron `0 7,13 * * *` (2×/jour). Rappels défis.
 - **`check-streak-push`** : `--no-verify-jwt`. pg_cron `0 18,21 * * *` (20h+23h Paris). Push si `last_login_date < today`.
 - **`notify-battle`** : `--no-verify-jwt`. Appelée depuis le client (`BattleGame.tsx`). Types : `item_spawned`, `item_claimed`, `battle_action`.
 - **`notify-photo-game`** : `--no-verify-jwt`. Appelée depuis le client pour tous les types sauf `new_theme`, qui ne vient plus que du cron serveur. Types : `photo_uploaded` (exclut l'uploader, destinataire inconnu à l'avance), `partner_uploaded` (cible explicitement le premier uploader), `vote_cast` (cible le partenaire dont la photo vient d'être votée, prénom sans accents dans le titre), `game_done` (cible le partenaire quand les 2 votes sont là), `new_theme` (broadcast aux deux, envoyé uniquement par le cron `photo-game-advance-new-theme` — le client n'appelle plus jamais `advance_photo_game()`, pour garantir qu'ouvrir l'app ne déclenche jamais cette notif).
@@ -420,6 +419,7 @@ RPC `advance_photo_game()` : atomique (FOR UPDATE), avance si `done` ou `active 
 17. `20260805_photo_game_new_theme_cron.sql` — cron `*/15 * * * *` (remplacer `<SERVICE_ROLE_KEY>`) qui appelle `advance_photo_game()` et envoie le push `new_theme` côté serveur si la partie a réellement avancé — le passage au thème suivant ne dépend plus d'un client ouvert au bon moment
 18. `20260806_user_wallet.sql` — table `user_wallet` (bourse individuelle par user) + RLS + RPC `award_coins` (upsert atomique) + realtime ; remplace le pot commun `couple_settings.coins` (colonnes conservées mais plus utilisées)
 19. `20260806_user_wallet_remove_rate.sql` — retire `last_coin_update_at`/`coin_rate` de `user_wallet` : plus de règlement ambiant, uniquement des récompenses ponctuelles
+20. `20260806_remove_room_game.sql` — retrait du jeu "Ma Chambre" : drop des tables `rooms`/`room_purchases`, de la RPC `purchase_room_upgrade`, du trigger de notif associé et du cron `room-upgrade-reminder` (bucket Storage `room-photos` à supprimer manuellement dans le dashboard)
 
 ## Conventions
 

@@ -15,32 +15,7 @@ const supabase = createClient(
 type Sub = { subscription: webpush.PushSubscription; user_id: string }
 type Challenge = { id: string; title: string; status: string; created_by: string }
 
-// Prix minimum parmi tous les articles de la boutique chambre
-const ROOM_SHOP_MIN_PRICE = 2500
-
-Deno.serve(async (req) => {
-  // Mode check coins uniquement (appelé par pg_cron séparé)
-  let body: Record<string, string> = {}
-  try { body = await req.json() } catch { /* pas de body */ }
-  if (body?.check === 'coins') {
-    const { data: settings } = await supabase
-      .from('couple_settings').select('coins').eq('id', 1).single()
-    if (settings && settings.coins >= ROOM_SHOP_MIN_PRICE) {
-      const { data: subs } = await supabase.from('push_subscriptions').select('subscription')
-      if (subs?.length) {
-        await Promise.allSettled(
-          (subs as { subscription: webpush.PushSubscription }[]).map(({ subscription }) =>
-            webpush.sendNotification(subscription, JSON.stringify({
-              title: '🏠 Ta chambre t\'attend !',
-              body: `Vous avez ${settings.coins} pièces — assez pour améliorer votre chambre ✨`,
-              tag: 'room-upgrade-reminder',
-            })).catch(() => null)
-          )
-        )
-      }
-    }
-    return new Response('ok', { status: 200 })
-  }
+Deno.serve(async () => {
   // Jour courant en heure de Paris
   const parisDay = new Date().toLocaleDateString('en-US', { weekday: 'long', timeZone: 'Europe/Paris' })
   const isCreationWindow = ['Monday', 'Tuesday', 'Wednesday'].includes(parisDay)

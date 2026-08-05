@@ -80,14 +80,6 @@ Un slot photo par jour, qui disparaît après 24h.
 - **UI :** zone d'upload + viewer plein écran
 - **Why :** FOMO doux, rareté = qualité
 
-### 🛋️ Chambre déblocable à deux
-Étendre `RoomShop.tsx` : nouveaux items qui n'apparaissent qu'après X jours de connexion commune.
-
-- **Tables :** ajouter `shopItems.unlock_condition: { type: 'streak', value: 7 }`
-- **Logique :** filtrer le shop selon la streak courante
-- **UI :** badge "Débloqué grâce à votre streak de 7 jours 💕"
-- **Why :** transforme le shop solo en récompense de couple
-
 ### 🆘 Mode "j'ai besoin de toi"
 Bouton qui notifie l'autre sans contexte. L'autre bascule en "mode présence" (fond d'écran apaisant partagé).
 
@@ -115,7 +107,7 @@ Point vert quand l'autre est dans l'app. Ouvre une scène partagée animée (pas
 
 - **Techno :** Supabase Realtime (channels presence)
 - **Tables :** présence éphémère (pas en DB)
-- **UI :** indicateur dans la nav, "co-room" = scène 3D partagée (réutilise `RoomScene.tsx` ?) avec curseurs/avatars
+- **UI :** indicateur dans la nav, "co-room" = scène 3D partagée avec curseurs/avatars
 - **Challenge :** gérer la déconnexion proprement, ne pas spammer le partenaire avec le point vert
 - **Why :** la *vraie* présence asynchrone, ce que les LDR cherchent
 

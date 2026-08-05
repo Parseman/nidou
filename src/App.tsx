@@ -5,10 +5,9 @@ import { useAuth } from './hooks/useAuth'
 import { AuthPage } from './components/auth/AuthPage'
 import { HomePage } from './components/home/HomePage'
 import { PetPage } from './components/pet/PetPage'
-import { RoomPage } from './components/room/RoomPage'
 import { registerPush } from './lib/pushNotifications'
 
-type Page = 'home' | 'pet' | 'room'
+type Page = 'home' | 'pet'
 
 function LoadingScreen() {
   return (
@@ -62,10 +61,9 @@ export default function App() {
             user={user}
             onSignOut={signOut}
             onGoToPet={() => navigate('pet')}
-            onGoToRoom={() => navigate('room')}
           />
         </motion.div>
-      ) : page === 'pet' ? (
+      ) : (
         <motion.div
           key="pet"
           custom={dir}
@@ -76,18 +74,6 @@ export default function App() {
           transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
         >
           <PetPage user={user} onBack={() => navigate('home')} />
-        </motion.div>
-      ) : (
-        <motion.div
-          key="room"
-          custom={dir}
-          variants={pageVariants}
-          initial="initial"
-          animate="animate"
-          exit="exit"
-          transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
-        >
-          <RoomPage user={user} onBack={() => navigate('home')} />
         </motion.div>
       )}
     </AnimatePresence>

@@ -80,13 +80,6 @@ Deno.serve(async (req) => {
       body: "Ouvre Nidou pour le découvrir ✨",
       tag: 'artwork',
     })
-  } else if (table === 'room_purchases') {
-    const name = record.buyer_name ?? 'Quelqu\'un'
-    await notifyAllExcept(record.buyer_id, {
-      title: `🏠 ${name} a amélioré sa chambre !`,
-      body: `${record.item_label} — ${record.cost} pièces dépensées 🪙`,
-      tag: 'room-purchase',
-    })
   }
 
   return new Response('OK', { status: 200 })
