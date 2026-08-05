@@ -40,22 +40,7 @@ export type RoundBoundaries = {
   nextRoundStart: number // jeudi 00:00 Paris (ms epoch) suivant — prochain thème
 }
 
-// Dérogation ponctuelle : gel du Photo Duel (comme un jour mort) jusqu'à
-// 00h30 (Paris) le 06/08/2026, pour resynchroniser le vrai début du tour
-// sur cette heure précise. S'auto-désactive ensuite (retourne le calcul
-// calendaire normal dès que `now` dépasse ce seuil) — à nettoyer une fois
-// la reprise passée.
-const FREEZE_UNTIL = Date.parse('2026-08-06T00:30:00+02:00')
-
 export function getRoundBoundaries(now: Date = new Date()): RoundBoundaries {
-  if (now.getTime() < FREEZE_UNTIL) {
-    return {
-      roundStart: FREEZE_UNTIL - 7 * 86_400_000,
-      deadline: now.getTime() - 1,
-      nextRoundStart: FREEZE_UNTIL,
-    }
-  }
-
   const { year, month, day } = parisDateParts(now)
   const dow = new Date(Date.UTC(year, month - 1, day)).getUTCDay() // 0=dim..4=jeu..6=sam
   const daysSinceThursday = (dow - 4 + 7) % 7
