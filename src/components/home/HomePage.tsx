@@ -19,10 +19,9 @@ import { BattleGame } from './BattleGame'
 type Props = {
   user: User
   onSignOut: () => void
-  onGoToPet: () => void
 }
 
-export function HomePage({ user, onSignOut, onGoToPet }: Props) {
+export function HomePage({ user, onSignOut }: Props) {
   const displayName = user.user_metadata?.first_name ?? user.email?.split('@')[0] ?? 'toi'
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [phoneOpen, setPhoneOpen] = useState(false)
@@ -139,7 +138,7 @@ export function HomePage({ user, onSignOut, onGoToPet }: Props) {
         {/* Raccourcis — 2×2 mobile / 4×1 tablette, masqué sur PC (accessible via le téléphone) */}
         <section className="px-4 pb-10 lg:hidden">
           <div className="max-w-3xl mx-auto grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <NidouChatIcon onOpen={onGoToPet} />
+            <NidouChatIcon user={user} />
             <CroustiArt user={user} compact />
             <PhotoGame user={user} />
             <BattleGame user={user} />
@@ -167,7 +166,7 @@ export function HomePage({ user, onSignOut, onGoToPet }: Props) {
 
       <CroustiMessage user={user} />
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} user={user} />
-      <PhoneModal open={phoneOpen} onClose={() => setPhoneOpen(false)} user={user} onGoToPet={onGoToPet} />
+      <PhoneModal open={phoneOpen} onClose={() => setPhoneOpen(false)} user={user} />
     </div>
   )
 }

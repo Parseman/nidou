@@ -58,7 +58,7 @@ src/
       NextMeetingCard.tsx    # Compte à rebours + barre de progression
       DefiLundi.tsx          # Défi du début de semaine (lun-mer, deadline mercredi suivant 23h59)
       CroustiMessage.tsx     # Messagerie temps réel (bulle flottante bas-droite)
-      NidouChat.tsx          # Card cliquable (image nidou-cover.png) → page pet
+      NidouChat.tsx          # Card cliquable (image nidou-cover.png) → modale Tamagotchi (actions, 3D, stats), self-contained comme PhotoGame/BattleGame
       SettingsModal.tsx      # Modale paramètres : toggle notifs push + toggle dark mode
       PhoneModal.tsx         # Modale « téléphone » (PC uniquement) : mockup de téléphone affichant les jeux en mini-icônes
       CoinPot.tsx            # Carte bourse individuelle (pièces accumulées selon happiness + partenaire)
@@ -66,10 +66,8 @@ src/
       CroustiArt.tsx         # Dessin collaboratif : hue slider dégradé + gomme + 2 couleurs fixes
       PhotoGame.tsx          # Jeu Photo Duel : upload photo sur thème, vote 👍/👎, rotation 200 thèmes
     BattleGame.tsx         # Jeu Combat : items spawn 3-7h, inventaire, épée/bouclier/cœur, forge enclume, 2 canvas 3D (prisca.glb / cookie.glb)
-    pet/
-      PetPage.tsx            # Page dédiée Tamagotchi : 3 colonnes (actions | 3D | stats)
 public/
-  nidouchat-v1.glb          # Modèle 3D du chat (Poly Pizza) — utilisé dans PetPage
+  nidouchat-v1.glb          # Modèle 3D du chat (Poly Pizza) — utilisé dans NidouChat.tsx
   prisca.glb                # Modèle 3D chat de Clément (Battle Game, côté gauche)
   cookie.glb                # Modèle 3D chat de Léona (Battle Game, côté droit)
   nidou-cover.png           # Illustration du chat dans le nid (card home)
@@ -93,10 +91,9 @@ supabase/
 
 ## Navigation
 
-`App.tsx` gère une state `page: 'home' | 'pet'` avec transition Framer Motion slide.
-- `HomePage` reçoit `onGoToPet` → déclenche la navigation vers `PetPage`
-- `PetPage` reçoit `onBack` → retour vers `HomePage`
-- Pas de React Router — navigation par state simple
+Pas de page-level routing : `App.tsx` affiche uniquement `AuthPage` (déconnecté) ou `HomePage` (connecté).
+Tous les jeux (Nidou, CroustiArt, Photo Duel, Combat) sont des modales self-contained ouvertes par-dessus `HomePage` — jamais de navigation qui démonte la page courante (important pour `PhoneModal`, voir plus bas).
+- Pas de React Router — chaque composant gère son propre state `open`/`onClose`
 
 ## Base de données
 
@@ -175,7 +172,7 @@ Realtime : `postgres_changes` sur tous les events.
 | updated_at               | timestamptz |                                                    |
 
 RLS : authenticated users can read/write. Upsert avec `id: 1`.
-Realtime : UPDATE subscription (dans NidouChat.tsx et PetPage.tsx).
+Realtime : UPDATE subscription (dans NidouChat.tsx).
 
 ### `user_streaks`
 | Colonne          | Type    | Notes                                   |
@@ -302,7 +299,7 @@ RPC `advance_photo_game()` : atomique (FOR UPDATE), avance si `done` ou `active 
 - **Cooldowns** : Nourrir 4h, Laver 6h, Câliner 30min
 - **Bonus par action** : +80 faim, +80 hygiène, +60 bonheur (plafonné à 100)
 - **Humeur** (`Mood`) : `happy` si moyenne > 65, `sad` si < 30, sinon `normal`
-- Les constantes (`DECAY_PER_HOUR`, `COOLDOWN_MS`, `BONUS`, types `PetRow`/`StatKey`/`AnimState`/`Mood`) sont exportées depuis `PetPage.tsx` et importées dans `NidouChat.tsx`
+- Les constantes (`DECAY_PER_HOUR`, `COOLDOWN_MS`, `BONUS`, types `PetRow`/`StatKey`/`AnimState`/`Mood`) et la logique (fetch, actions, 3D) sont toutes dans `NidouChat.tsx` (composant self-contained, plus de fichier séparé)
 
 ## Règles métier — Bourse individuelle 🪙
 
@@ -311,9 +308,9 @@ RPC `advance_photo_game()` : atomique (FOR UPDATE), avance si `done` ou `active 
 - **Récompenses ponctuelles** (via `awardCoins()`, `src/lib/wallet.ts` → RPC `award_coins`, atomique) :
   | Action | Récompense | Fichier |
   |---|---|---|
-  | Câliner le pet | +5 | `PetPage.tsx` (`act('happiness')`) |
-  | Nourrir le pet | +20 | `PetPage.tsx` (`act('hunger')`) |
-  | Laver le pet | +20 | `PetPage.tsx` (`act('hygiene')`) |
+  | Câliner le pet | +5 | `NidouChat.tsx` (`act('happiness')`) |
+  | Nourrir le pet | +20 | `NidouChat.tsx` (`act('hunger')`) |
+  | Laver le pet | +20 | `NidouChat.tsx` (`act('hygiene')`) |
   | Participation Photo Duel (upload photo) | +50 | `PhotoGame.tsx` (`handleFile`) |
   | Attaque à l'épée (Combat) | +10 | `BattleGame.tsx` (`handleUseSword`) |
   | Défi hebdo validé — Facile | +10 | `DefiLundi.tsx` (`validateChallenge` + auto-validation à expiration) |
@@ -327,7 +324,7 @@ RPC `advance_photo_game()` : atomique (FOR UPDATE), avance si `done` ou `active 
 ## Composants — points clés
 
 ### App.tsx
-- State `page: 'home' | 'pet'` + `dir: number` pour animer le slide.
+- Pas de state de page — rend directement `HomePage` une fois connecté (aucun composant ne démonte `HomePage`, tous les jeux sont des modales).
 - Au login, si `Notification.permission === 'granted'`, appelle `registerPush` silencieusement.
 
 ### HomePage
@@ -336,7 +333,7 @@ RPC `advance_photo_game()` : atomique (FOR UPDATE), avance si `done` ou `active 
 - Grille raccourcis jeux (`NidouChatIcon`, `CroustiArt`, `PhotoGame`, `BattleGame`) : 2×2 mobile / 4×1 tablette, **masquée en PC** (`lg:hidden`) — sur PC ces jeux ne sont accessibles que via le bouton téléphone (voir `PhoneModal`).
 - Bouton "Ouvrir le téléphone" (icône `Smartphone`) : visible uniquement en PC (`hidden lg:flex`), tout en bas de la page, ouvre `PhoneModal`.
 - `<CroustiMessage>` fixed bas-droite. `<SettingsModal>` déclenché par Paramètres.
-- Props : `user`, `onSignOut`, `onGoToPet`.
+- Props : `user`, `onSignOut`.
 
 ### PhoneModal
 - Modale plein écran (overlay + clic dehors pour fermer, comme `SettingsModal`) affichant un mockup de téléphone (bezel + encoche) — **visible uniquement en PC** via le bouton de `HomePage`.
@@ -369,14 +366,10 @@ RPC `advance_photo_game()` : atomique (FOR UPDATE), avance si `done` ou `active 
 - Countdown + verrouillage (`locked`) calculés via `getRoundBoundaries()` (`src/lib/photoGameSchedule.ts`), recalculés à chaque tick (60s) : avant la deadline mardi 23h59 → countdown vers la deadline ; après (mercredi, verrouillé) ou en `done` → countdown vers le jeudi 00h00 suivant, moment où `advance_photo_game()` est appelé côté client.
 
 ### NidouChat.tsx (export : `NidouChatIcon`)
-- Card cliquable avec `public/nidou-cover.png` en image de fond.
-- Overlay gradient bas : nom "Nidou", humeur, 3 dots colorés.
-- Badge `!` si une action est disponible.
-
-### PetPage
-- Page complète 3 colonnes sur desktop : Actions (w-64) | Canvas 3D (flex-1) | Stats (w-64).
-- **3D** : `OrbitControls` (rotation libre, pas de zoom, pas de pan). Modèle `nidouchat-v1.glb`, scale `0.8`, caméra `[0, 0.3, 6]` fov `40`.
-- Exports partagés : `calcStats`, `canAct`, `COOLDOWN_MS`, `DECAY_PER_HOUR`, `BONUS`, types.
+- Self-contained comme `PhotoGame`/`BattleGame` : state `open` local, card cliquable avec `public/nidou-cover.png` en image de fond → ouvre une modale par-dessus le contexte courant (ne navigue jamais, donc reste au-dessus du `PhoneModal` s'il est ouvert).
+- Card : overlay gradient bas (nom "Nidou", humeur, 3 dots colorés), badge `!` si une action est disponible.
+- Modale : canvas 3D (`nidouchat-v1.glb`, scale `0.8`, caméra `[0, 0.3, 6]` fov `40`, `OrbitControls` rotation libre sans zoom/pan) + 3 actions (Nourrir/Laver/Câliner) + stats (barres Faim/Hygiène/Bonheur).
+- Exports partagés : `calcStats`, `canAct`, `COOLDOWN_MS`, `DECAY_PER_HOUR`, `BONUS`, types `PetRow`/`StatKey`/`AnimState`/`Mood`.
 
 ## Dark mode
 

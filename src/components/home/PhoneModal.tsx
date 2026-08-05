@@ -9,10 +9,9 @@ type Props = {
   open: boolean
   onClose: () => void
   user: User
-  onGoToPet: () => void
 }
 
-export function PhoneModal({ open, onClose, user, onGoToPet }: Props) {
+export function PhoneModal({ open, onClose, user }: Props) {
   return (
     <AnimatePresence>
       {open && (
@@ -40,7 +39,7 @@ export function PhoneModal({ open, onClose, user, onGoToPet }: Props) {
 
                 <div className="w-full h-full overflow-y-auto pt-10 px-4 pb-6">
                   <div className="grid grid-cols-2 gap-3">
-                    <NidouChatIcon onOpen={onGoToPet} />
+                    <NidouChatIcon user={user} />
                     <CroustiArt user={user} compact />
                     <PhotoGame user={user} />
                     <BattleGame user={user} />

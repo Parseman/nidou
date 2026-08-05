@@ -1,13 +1,9 @@
-import { useState, useEffect } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { useEffect } from 'react'
 import { Loader2 } from 'lucide-react'
 import { useAuth } from './hooks/useAuth'
 import { AuthPage } from './components/auth/AuthPage'
 import { HomePage } from './components/home/HomePage'
-import { PetPage } from './components/pet/PetPage'
 import { registerPush } from './lib/pushNotifications'
-
-type Page = 'home' | 'pet'
 
 function LoadingScreen() {
   return (
@@ -20,16 +16,8 @@ function LoadingScreen() {
   )
 }
 
-const pageVariants = {
-  initial: (dir: number) => ({ opacity: 0, x: dir * 40 }),
-  animate: { opacity: 1, x: 0 },
-  exit:    (dir: number) => ({ opacity: 0, x: dir * -40 }),
-}
-
 export default function App() {
   const { user, loading, signIn, signOut } = useAuth()
-  const [page, setPage] = useState<Page>('home')
-  const [dir,  setDir]  = useState(1)
 
   useEffect(() => {
     if (user && 'Notification' in window && Notification.permission === 'granted') {
@@ -37,45 +25,8 @@ export default function App() {
     }
   }, [user])
 
-  const navigate = (to: Page) => {
-    setDir(to !== 'home' ? 1 : -1)
-    setPage(to)
-  }
-
   if (loading) return <LoadingScreen />
   if (!user)   return <AuthPage onSignIn={signIn} />
 
-  return (
-    <AnimatePresence mode="wait" custom={dir}>
-      {page === 'home' ? (
-        <motion.div
-          key="home"
-          custom={dir}
-          variants={pageVariants}
-          initial="initial"
-          animate="animate"
-          exit="exit"
-          transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
-        >
-          <HomePage
-            user={user}
-            onSignOut={signOut}
-            onGoToPet={() => navigate('pet')}
-          />
-        </motion.div>
-      ) : (
-        <motion.div
-          key="pet"
-          custom={dir}
-          variants={pageVariants}
-          initial="initial"
-          animate="animate"
-          exit="exit"
-          transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
-        >
-          <PetPage user={user} onBack={() => navigate('home')} />
-        </motion.div>
-      )}
-    </AnimatePresence>
-  )
+  return <HomePage user={user} onSignOut={signOut} />
 }
