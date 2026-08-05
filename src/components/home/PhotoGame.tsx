@@ -4,8 +4,7 @@ import { X, Upload, ThumbsUp, ThumbsDown, Camera, RefreshCw, Clock } from 'lucid
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../../lib/supabase'
 import { THEMES } from '../../lib/photoGameThemes'
-
-const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000
+import { getRoundBoundaries } from '../../lib/photoGameSchedule'
 
 type GameRow = {
   id: number
@@ -36,23 +35,12 @@ export function PhotoGame({ user }: { user: User }) {
   const [uploading, setUploading] = useState(false)
   const [voting, setVoting] = useState(false)
   const [timeLeft, setTimeLeft] = useState('')
+  const [locked, setLocked] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   const loadGame = useCallback(async () => {
     const { data } = await supabase.from('photo_game').select('*').eq('id', 1).single()
-    if (!data) { setLoading(false); return }
-    const g = data as GameRow
-    const expired =
-      (g.status === 'active' && Date.now() - new Date(g.started_at).getTime() > THREE_DAYS_MS) ||
-      (g.status === 'done' && Date.now() - new Date(g.updated_at).getTime() > THREE_DAYS_MS)
-    if (expired) {
-      const { data: advanced } = await supabase.rpc('advance_photo_game')
-      if (advanced) await sendNotif('new_theme')
-      const { data: fresh } = await supabase.from('photo_game').select('*').eq('id', 1).single()
-      if (fresh) setGame(fresh as GameRow)
-    } else {
-      setGame(g)
-    }
+    if (data) setGame(data as GameRow)
     setLoading(false)
   }, [])
 
@@ -67,22 +55,23 @@ export function PhotoGame({ user }: { user: User }) {
   }, [loadGame])
 
   useEffect(() => {
-    if (!game || (game.status !== 'active' && game.status !== 'done')) { setTimeLeft(''); return }
-    const baseTime = game.status === 'active' ? game.started_at : game.updated_at
+    if (!game) {
+      setTimeLeft('')
+      setLocked(false)
+      return
+    }
     const tick = () => {
-      const ms = THREE_DAYS_MS - (Date.now() - new Date(baseTime).getTime())
-      setTimeLeft(fmtTimeLeft(ms))
-      if (ms <= 0) {
-        supabase.rpc('advance_photo_game').then(({ data: advanced }) => {
-          if (advanced) sendNotif('new_theme')
-          loadGame()
-        })
-      }
+      const now = Date.now()
+      const { deadline, nextRoundStart } = getRoundBoundaries(new Date(now))
+      const pastDeadline = now > deadline
+      setLocked(game.status !== 'done' && pastDeadline)
+      const target = (game.status === 'done' || pastDeadline) ? nextRoundStart : deadline
+      setTimeLeft(fmtTimeLeft(target - now))
     }
     tick()
     const t = setInterval(tick, 60_000)
     return () => clearInterval(t)
-  }, [game?.started_at, game?.updated_at, game?.status, loadGame])
+  }, [game?.status, loadGame])
 
   // Ma position (slot 1 ou 2)
   const mySlot = game?.photo_1_user_id === user.id ? 1
@@ -190,13 +179,16 @@ export function PhotoGame({ user }: { user: User }) {
   function statusLabel(): string {
     if (!game) return ''
     if (game.status === 'done') return '✅ Résultats'
+    if (locked) return '🔒 Trop tard, prochain thème jeudi'
     if (game.status === 'voting') return myVote !== null && myVote !== undefined ? '⏳ Vote envoyé' : '👍 À toi de voter !'
     return myPhoto ? '⏳ En attente de ton partenaire' : '📸 Upload ta photo'
   }
 
   const needsAction =
-    (game?.status === 'voting' && (myVote === null || myVote === undefined)) ||
-    (game?.status === 'active' && !myPhoto)
+    !locked && (
+      (game?.status === 'voting' && (myVote === null || myVote === undefined)) ||
+      (game?.status === 'active' && !myPhoto)
+    )
 
   if (loading) return <div className="rounded-3xl glass-card animate-pulse" style={{ aspectRatio: '1/1' }} />
 
@@ -256,7 +248,7 @@ export function PhotoGame({ user }: { user: User }) {
                       style={{ fontFamily: '"Varela Round", sans-serif' }}>
                       Photo Duel
                     </h2>
-                    {(game?.status === 'active' || game?.status === 'done') && timeLeft && (
+                    {(game?.status === 'active' || game?.status === 'voting' || game?.status === 'done') && timeLeft && (
                       <span className="flex items-center gap-1 text-xs text-pink-400 dark:text-pink-300 bg-pink-50 dark:bg-pink-900/30 px-2 py-0.5 rounded-full">
                         <Clock size={10} /> {timeLeft}
                       </span>
@@ -288,7 +280,7 @@ export function PhotoGame({ user }: { user: User }) {
                     ) : (
                       <button
                         onClick={() => fileRef.current?.click()}
-                        disabled={uploading || game?.status !== 'active'}
+                        disabled={uploading || game?.status !== 'active' || locked}
                         className="w-full h-full flex flex-col items-center justify-center gap-2 text-pink-300 dark:text-pink-500 hover:text-pink-500 dark:hover:text-pink-300 transition-colors disabled:opacity-40"
                       >
                         {uploading
@@ -337,7 +329,7 @@ export function PhotoGame({ user }: { user: User }) {
               </div>
 
               {/* Zone de vote */}
-              {game?.status === 'voting' && partnerPhoto && (myVote === null || myVote === undefined) && (
+              {game?.status === 'voting' && partnerPhoto && (myVote === null || myVote === undefined) && !locked && (
                 <div className="mb-4">
                   <p className="text-sm font-medium text-pink-600 dark:text-pink-300 text-center mb-3">
                     Tu aimes la photo de ton partenaire ?
@@ -361,13 +353,19 @@ export function PhotoGame({ user }: { user: User }) {
                 </div>
               )}
 
-              {game?.status === 'voting' && (myVote !== null && myVote !== undefined) && !partnerPhoto && (
+              {locked && (game?.status === 'active' || game?.status === 'voting') && (
+                <p className="text-center text-sm text-pink-400 dark:text-pink-300 mb-4">
+                  🔒 Trop tard pour cette manche ! Prochain thème dans {timeLeft || '…'}
+                </p>
+              )}
+
+              {game?.status === 'voting' && (myVote !== null && myVote !== undefined) && !partnerPhoto && !locked && (
                 <p className="text-center text-sm text-pink-400 dark:text-pink-300 mb-4">
                   ⏳ En attente de la photo de ton partenaire…
                 </p>
               )}
 
-              {game?.status === 'voting' && (myVote !== null && myVote !== undefined) && partnerPhoto && (
+              {game?.status === 'voting' && (myVote !== null && myVote !== undefined) && partnerPhoto && !locked && (
                 <p className="text-center text-sm text-pink-400 dark:text-pink-300 mb-4">
                   ⏳ Vote envoyé ! En attente de ton partenaire…
                 </p>
@@ -383,7 +381,7 @@ export function PhotoGame({ user }: { user: User }) {
               )}
 
               {/* Bouton upload principal (fallback si hors grille photos) */}
-              {game?.status === 'active' && !myPhoto && (
+              {game?.status === 'active' && !myPhoto && !locked && (
                 <button
                   onClick={() => fileRef.current?.click()}
                   disabled={uploading}
