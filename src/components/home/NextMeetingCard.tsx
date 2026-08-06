@@ -126,7 +126,7 @@ export function NextMeetingCard() {
   const todayStr = new Date().toISOString().split('T')[0]
 
   return (
-    <div className="glass-card rounded-3xl p-6">
+    <div className="glass-card rounded-3xl p-4 md:p-6">
       <AnimatePresence mode="wait">
         {!editing ? (
           <motion.div
@@ -136,7 +136,7 @@ export function NextMeetingCard() {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
           >
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-2 md:mb-4">
               <div className="flex items-center gap-2">
                 <Calendar className="text-pink-400" size={18} strokeWidth={1.8} />
                 <h2
@@ -158,13 +158,13 @@ export function NextMeetingCard() {
             {hasNext ? (
               <>
                 <p
-                  className="text-xl font-bold bg-gradient-to-r from-pink-500 to-violet-500 bg-clip-text text-transparent mb-1 capitalize"
+                  className="text-lg md:text-xl font-bold bg-gradient-to-r from-pink-500 to-violet-500 bg-clip-text text-transparent mb-1 capitalize"
                   style={{ fontFamily: '"Varela Round", sans-serif' }}
                 >
                   {fmtLong(data.next_meeting_date!)}
                 </p>
 
-                <p className="text-pink-400 text-sm mb-5">
+                <p className="text-pink-400 text-sm mb-2 md:mb-5">
                   {days === 0
                     ? "C'est aujourd'hui ! 🎉"
                     : days! < 0

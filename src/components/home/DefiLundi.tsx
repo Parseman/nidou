@@ -252,13 +252,13 @@ export function DefiLundi({ user }: { user: User }) {
     <>
       {/* ── Preview card ── */}
       <div
-        className="glass-card rounded-3xl p-6 cursor-pointer group
+        className="glass-card rounded-3xl p-4 md:p-6 cursor-pointer group
                    hover:shadow-lg hover:shadow-pink-100 transition-all duration-200"
         onClick={() => setIsOpen(true)}
         role="button"
         aria-label="Ouvrir le Défi du début de semaine"
       >
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-2 md:mb-4">
           <div className="flex items-center gap-2">
             <Trophy className="text-pink-400" size={18} strokeWidth={1.8} />
             <h2

@@ -54,13 +54,13 @@ src/
   components/
     auth/AuthPage.tsx        # Formulaire login (email/password)
     home/
-      HomePage.tsx           # Layout principal (navbar + streak 🔥, hero, grille 4 cartes, raccourcis jeux mobile/tablette, bouton téléphone PC)
+      HomePage.tsx           # Layout principal (navbar + streak 🔥, hero, grille 4 cartes, bouton téléphone — toutes tailles d'écran)
       NextMeetingCard.tsx    # Compte à rebours + barre de progression
       DefiLundi.tsx          # Défi du début de semaine (lun-mer, deadline mercredi suivant 23h59)
       CroustiMessage.tsx     # Messagerie temps réel (bulle flottante bas-droite)
       NidouChat.tsx          # Card cliquable (image nidou-cover.png) → modale Tamagotchi (actions, 3D, stats), self-contained comme PhotoGame/BattleGame
       SettingsModal.tsx      # Modale paramètres : toggle notifs push + toggle dark mode
-      PhoneModal.tsx         # Modale « téléphone » (PC uniquement) : mockup de téléphone affichant les jeux en mini-icônes
+      PhoneModal.tsx         # Modale « téléphone », seul point d'entrée vers les jeux (toutes tailles d'écran) : plein écran sans bezel sur mobile/tablette, mockup de téléphone (bezel + encoche) sur PC
       CoinPot.tsx            # Carte bourse individuelle (pièces accumulées selon happiness + partenaire)
       DistanceCard.tsx       # Carte distance physique (géolocalisation + Haversine + Realtime)
       CroustiArt.tsx         # Dessin collaboratif : hue slider dégradé + gomme + 2 couleurs fixes
@@ -330,17 +330,22 @@ RPC `advance_photo_game()` : atomique (FOR UPDATE), avance si `done` ou `active 
 ### HomePage
 - Navbar : logo 🪺 + "Nidou" + streak 🔥N + Paramètres + Déconnexion.
 - Grille principale : `NextMeetingCard`, `DefiLundi`, `CoinPot`, `DistanceCard` — 1 colonne mobile, 2 (`md`), 4 sur la même ligne en PC (`lg:grid-cols-4`, conteneur `lg:max-w-5xl`).
-- Grille raccourcis jeux (`NidouChatIcon`, `CroustiArt`, `PhotoGame`, `BattleGame`) : 2×2 mobile / 4×1 tablette, **masquée en PC** (`lg:hidden`) — sur PC ces jeux ne sont accessibles que via le bouton téléphone (voir `PhoneModal`).
-- Bouton "Ouvrir le téléphone" (icône `Smartphone`) : visible uniquement en PC (`hidden lg:flex`), tout en bas de la page, ouvre `PhoneModal`.
+- Hero, cartes principales et footer sont en tailles compactes sur mobile (padding, marges, tailles de police réduites sans préfixe Tailwind) et retrouvent leur taille normale à partir de `md:` — objectif : limiter le scroll vertical sur mobile où les 4 cartes s'empilent en 1 colonne. Toute nouvelle carte ajoutée à cette grille doit suivre le même pattern (`p-4 md:p-6`, `mb-2 md:mb-4`, texte agrandi via `md:text-*` plutôt que par défaut).
+- Accès à `PhoneModal` — seul point d'entrée vers les jeux (Nidou, CroustiArt, Photo Duel, Combat), qu'on soit sur mobile, tablette ou PC :
+  - **PC (`lg:`)** : bouton "Ouvrir le téléphone" (icône `Smartphone`) en bas de la page, dans le flux normal (`hidden lg:flex`).
+  - **Mobile/tablette (< `lg`)** : bulle flottante fixe en bas à gauche (`fixed bottom-6 left-6`, miroir de la bulle `CroustiMessage` à droite), icône `Smartphone` seule, toujours accessible sans scroller.
 - `<CroustiMessage>` fixed bas-droite. `<SettingsModal>` déclenché par Paramètres.
 - Props : `user`, `onSignOut`.
 
 ### PhoneModal
-- Modale plein écran (overlay + clic dehors pour fermer, comme `SettingsModal`) affichant un mockup de téléphone (bezel + encoche) — **visible uniquement en PC** via le bouton de `HomePage`.
+- Modale plein écran (overlay + clic dehors pour fermer, comme `SettingsModal` — sur mobile/tablette le backdrop est masqué puisque le contenu occupe déjà tout l'écran, fermeture uniquement via le bouton `X`) — **seul point d'entrée vers les jeux**, déclenchée par le bouton "Ouvrir le téléphone" de `HomePage` à toutes les tailles d'écran.
+- Rendu responsive au sein du même JSX (classes `lg:` conditionnelles, pas de détection JS du breakpoint) :
+  - **Mobile/tablette (< `lg`)** : plein écran, sans bezel ni encoche, fond dégradé identique à l'intérieur de l'écran du mockup PC ; en-tête avec titre "Mes jeux" + bouton fermer (`X`) puisqu'il n'y a pas de backdrop cliquable visible ; padding `env(safe-area-inset-top/bottom)` pour respecter l'encoche/la home indicator du vrai téléphone.
+  - **PC (`lg:`)** : mockup de téléphone à taille fixe (bezel + encoche + `border`/`shadow`), comportement inchangé (clic sur le backdrop pour fermer).
 - Écran du téléphone en `flex flex-col` : zone de contenu scrollable en haut (`flex-1 overflow-y-auto`) + dock fixe en bas (`shrink-0`, non scrollable).
-- Zone de contenu : grille 2×2 des mêmes composants `NidouChatIcon`, `CroustiArt` (compact), `PhotoGame`, `BattleGame` que la grille raccourcis mobile, en mini-icônes façon écran d'accueil (chaque icône réduite à `w-[92px]`, centrée dans sa cellule via `justify-items-center` — au lieu de remplir toute la cellule de la grille). Chaque icône garde son comportement normal (ouvre sa propre modale plein écran par-dessus le téléphone).
-- Dock du bas : bande `min-h-[160px]` séparée visuellement de la grille par une bordure (`border-t`) et un fond distinct (`bg-white/40 dark:bg-black/30 backdrop-blur-md`, glassmorphism), réservée aux futurs jeux/éléments prioritaires — vide pour le moment, en attente de contenu.
-- ⚠️ Piège realtime : ces 4 composants montent chacun un channel Supabase avec un nom **fixe** en dur (ex. `'photo-game-rt'`). Or `supabase.channel(topic)` renvoie la **même instance** si un channel du même nom existe déjà (`RealtimeClient.channel()`), et rappeler `.on()` sur un channel déjà `subscribe()` **lève une exception synchrone** (`RealtimeChannel.on()` : `cannot add \`type\` callbacks... after \`subscribe()\``). Comme l'app n'a pas d'`ErrorBoundary`, ça fait planter tout React (écran vide) dès qu'une 2e instance du même composant est montée en parallèle (téléphone ouvert alors que la grille raccourcis est aussi montée). **Fix appliqué** : chaque composant génère un `useId()` et l'ajoute au nom du channel (ex. `` `photo-game-rt-${instanceId}` ``) pour que deux instances simultanées n'entrent jamais en collision. Toute nouvelle utilisation en double montage d'un composant à channel réaliste doit suivre le même pattern.
+- Zone de contenu : grille 2×2 des composants `NidouChatIcon`, `CroustiArt` (compact), `PhotoGame`, `BattleGame`, en mini-icônes façon écran d'accueil (icônes limitées à `max-w-[140px]` sur mobile/tablette, `w-[92px]` fixe sur PC, centrées dans leur cellule via `justify-items-center`). Chaque icône garde son comportement normal (ouvre sa propre modale plein écran par-dessus le téléphone).
+- Dock du bas : bande séparée visuellement de la grille par une bordure (`border-t`) et un fond distinct (`bg-white/40 dark:bg-black/30 backdrop-blur-md`, glassmorphism), réservée aux futurs jeux/éléments prioritaires — vide pour le moment, en attente de contenu.
+- ⚠️ Piège realtime : ces 4 composants montent chacun un channel Supabase avec un nom **fixe** en dur (ex. `'photo-game-rt'`). Or `supabase.channel(topic)` renvoie la **même instance** si un channel du même nom existe déjà (`RealtimeClient.channel()`), et rappeler `.on()` sur un channel déjà `subscribe()` **lève une exception synchrone** (`RealtimeChannel.on()` : `cannot add \`type\` callbacks... after \`subscribe()\``). Comme l'app n'a pas d'`ErrorBoundary`, ça fait planter tout React (écran vide) dès qu'une 2e instance du même composant est montée en parallèle. Depuis que `PhoneModal` est le seul point d'entrée vers les jeux (plus de grille raccourcis séparée sur `HomePage`), une seule instance de chaque composant est jamais montée à la fois — le risque de double montage ne peut plus survenir dans ce flux normal. **Fix conservé en défense** : chaque composant génère quand même un `useId()` et l'ajoute au nom du channel (ex. `` `photo-game-rt-${instanceId}` ``), pour que toute future utilisation en double montage d'un de ces composants suive le même pattern.
 
 ### CoinPot
 - Affiche la **bourse individuelle** (`user_wallet`) : solde de l'utilisateur courant en grand, solde du partenaire en petit sous un séparateur.

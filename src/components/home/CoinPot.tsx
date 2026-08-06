@@ -52,8 +52,8 @@ export function CoinPot({ user }: { user: User }) {
   const isLoading = mine === null
 
   return (
-    <div className="glass-card rounded-3xl p-6">
-      <div className="flex items-center justify-between mb-4">
+    <div className="glass-card rounded-3xl p-4 md:p-6">
+      <div className="flex items-center justify-between mb-2 md:mb-4">
         <h2
           className="text-base font-bold text-amber-700 flex items-center gap-2"
           style={{ fontFamily: '"Varela Round", sans-serif' }}
@@ -62,9 +62,9 @@ export function CoinPot({ user }: { user: User }) {
         </h2>
       </div>
 
-      <div className="flex items-center justify-center py-4">
+      <div className="flex items-center justify-center py-1 md:py-4">
         {isLoading ? (
-          <span className="text-4xl font-bold text-amber-300">…</span>
+          <span className="text-3xl md:text-4xl font-bold text-amber-300">…</span>
         ) : (
           <AnimatePresence mode="wait">
             <motion.span
@@ -73,7 +73,7 @@ export function CoinPot({ user }: { user: User }) {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 8 }}
               transition={{ duration: 0.25 }}
-              className={`text-5xl font-bold tabular-nums ${
+              className={`text-3xl md:text-5xl font-bold tabular-nums ${
                 mine >= 0 ? 'text-amber-500' : 'text-red-400'
               }`}
               style={{ fontFamily: '"Varela Round", sans-serif' }}
@@ -89,7 +89,7 @@ export function CoinPot({ user }: { user: User }) {
       </p>
 
       {partner !== null && (
-        <div className="flex items-center justify-between mt-4 pt-3 border-t border-amber-100">
+        <div className="flex items-center justify-between mt-2 pt-2 md:mt-4 md:pt-3 border-t border-amber-100">
           <span className="text-xs text-pink-400">Bourse du partenaire</span>
           <span className={`text-sm font-bold tabular-nums ${
             partner >= 0 ? 'text-amber-500' : 'text-red-400'

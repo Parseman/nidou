@@ -5,15 +5,11 @@ import { LogOut, Settings, Smartphone } from 'lucide-react'
 import { NextMeetingCard } from './NextMeetingCard'
 import { CroustiMessage } from './CroustiMessage'
 import { DefiLundi } from './DefiLundi'
-import { NidouChatIcon } from './NidouChat'
 import { SettingsModal } from './SettingsModal'
 import { PhoneModal } from './PhoneModal'
 import { CoinPot } from './CoinPot'
 import { useStreak } from '../../lib/useStreak'
-import { CroustiArt } from './CroustiArt'
 import { DistanceCard } from './DistanceCard'
-import { PhotoGame } from './PhotoGame'
-import { BattleGame } from './BattleGame'
 
 
 type Props = {
@@ -85,14 +81,14 @@ export function HomePage({ user, onSignOut }: Props) {
 
       <main>
         {/* Hero section */}
-        <section className="px-4 pt-6 pb-4 text-center">
+        <section className="px-4 pt-4 pb-2 md:pt-6 md:pb-4 text-center">
           <motion.div
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
           >
             <h1
-              className="text-4xl md:text-5xl font-bold text-pink-700 dark:text-pink-200 mb-3 leading-tight"
+              className="text-3xl md:text-5xl font-bold text-pink-700 dark:text-pink-200 mb-1 md:mb-3 leading-tight"
               style={{ fontFamily: '"Varela Round", sans-serif' }}
             >
               Bienvenue,&nbsp;
@@ -101,15 +97,15 @@ export function HomePage({ user, onSignOut }: Props) {
               </span>
             </h1>
 
-            <p className="text-pink-400 dark:text-pink-300 text-base md:text-lg max-w-sm mx-auto leading-relaxed">
+            <p className="text-pink-400 dark:text-pink-300 text-sm md:text-lg max-w-sm mx-auto leading-relaxed">
               Espace de crousti jeu et crousti défi pour nous !
             </p>
           </motion.div>
         </section>
 
         {/* Cards principales */}
-        <section className="px-4 pb-4">
-          <div className="max-w-3xl lg:max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <section className="px-4 pb-3 md:pb-4">
+          <div className="max-w-3xl lg:max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
             <NextMeetingCard />
             <DefiLundi user={user} />
             <CoinPot user={user} />
@@ -117,17 +113,7 @@ export function HomePage({ user, onSignOut }: Props) {
           </div>
         </section>
 
-        {/* Raccourcis — 2×2 mobile / 4×1 tablette, masqué sur PC (accessible via le téléphone) */}
-        <section className="px-4 pb-6 lg:hidden">
-          <div className="max-w-3xl mx-auto grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <NidouChatIcon user={user} />
-            <CroustiArt user={user} compact />
-            <PhotoGame user={user} />
-            <BattleGame user={user} />
-          </div>
-        </section>
-
-        {/* Téléphone — PC uniquement */}
+        {/* Téléphone — seul point d'entrée vers les jeux, PC uniquement (mobile/tablette : bulle flottante ci-dessous) */}
         <section className="hidden lg:flex justify-center pb-4 px-4">
           <button
             onClick={() => setPhoneOpen(true)}
@@ -140,7 +126,21 @@ export function HomePage({ user, onSignOut }: Props) {
 
       </main>
 
-      <footer className="text-center py-4 px-4">
+      {/* Bulle flottante téléphone — mobile/tablette uniquement, miroir de CroustiMessage à gauche */}
+      <motion.button
+        onClick={() => setPhoneOpen(true)}
+        className="lg:hidden fixed bottom-6 left-6 z-40 w-14 h-14 rounded-full
+                   bg-gradient-to-br from-pink-400 to-violet-400
+                   shadow-lg shadow-pink-300/40
+                   flex items-center justify-center cursor-pointer"
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.95 }}
+        aria-label="Ouvrir le téléphone"
+      >
+        <Smartphone size={24} className="text-white" strokeWidth={1.8} />
+      </motion.button>
+
+      <footer className="text-center py-2 md:py-4 px-4">
         <p className="text-pink-300 dark:text-pink-400 text-xs">
           💕Site des Crousti'Amoureux tout chaud💕
         </p>

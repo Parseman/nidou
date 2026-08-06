@@ -129,8 +129,8 @@ export function DistanceCard({ user }: { user: User }) {
   }, [user.id])
 
   return (
-    <div className="glass-card rounded-3xl p-6">
-      <div className="flex items-center gap-2 mb-4">
+    <div className="glass-card rounded-3xl p-4 md:p-6">
+      <div className="flex items-center gap-2 mb-2 md:mb-4">
         <MapPin className="text-pink-400" size={18} strokeWidth={1.8} />
         <h2
           className="font-bold text-pink-700 dark:text-pink-200 text-sm"
@@ -141,20 +141,20 @@ export function DistanceCard({ user }: { user: User }) {
       </div>
 
       {status === 'loading' && (
-        <div className="py-5 text-center">
+        <div className="py-2 md:py-5 text-center">
           <p className="text-pink-300 text-sm">Localisation…</p>
         </div>
       )}
 
       {status === 'ok' && distance !== null && (
-        <div className="text-center py-2">
+        <div className="text-center">
           <p
-            className="text-4xl font-bold bg-gradient-to-r from-pink-500 to-violet-500 bg-clip-text text-transparent tabular-nums"
+            className="text-2xl md:text-4xl font-bold bg-gradient-to-r from-pink-500 to-violet-500 bg-clip-text text-transparent tabular-nums"
             style={{ fontFamily: '"Varela Round", sans-serif' }}
           >
             {fmtDistance(distance)}
           </p>
-          <p className="text-pink-400 dark:text-pink-300 text-xs mt-4 leading-relaxed">
+          <p className="text-pink-400 dark:text-pink-300 text-xs mt-2 md:mt-4 leading-relaxed">
             {myAge && <>Toi : {myAge}</>}
             {myAge && partnerAge && <> · </>}
             {partnerAge && <>Partenaire : {partnerAge}</>}
@@ -163,7 +163,7 @@ export function DistanceCard({ user }: { user: User }) {
       )}
 
       {status === 'no-partner' && (
-        <div className="py-4 text-center">
+        <div className="py-2 md:py-4 text-center">
           <p className="text-2xl mb-2">📍</p>
           <p className="text-pink-500 dark:text-pink-300 text-sm font-medium">En attente</p>
           <p className="text-pink-400 dark:text-pink-300 text-xs mt-1 leading-relaxed">
@@ -176,7 +176,7 @@ export function DistanceCard({ user }: { user: User }) {
       )}
 
       {status === 'denied' && (
-        <div className="py-4 text-center">
+        <div className="py-2 md:py-4 text-center">
           <p className="text-2xl mb-2">🔒</p>
           <p className="text-pink-500 dark:text-pink-300 text-sm font-medium">Localisation refusée</p>
           <p className="text-pink-400 dark:text-pink-300 text-xs mt-1 leading-relaxed">
@@ -186,7 +186,7 @@ export function DistanceCard({ user }: { user: User }) {
       )}
 
       {status === 'unavailable' && (
-        <div className="py-4 text-center">
+        <div className="py-2 md:py-4 text-center">
           <p className="text-pink-400 text-sm">Distance indisponible.</p>
         </div>
       )}
