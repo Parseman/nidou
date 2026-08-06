@@ -146,7 +146,7 @@ export function CroustiMessage({ user }: { user: User }) {
             {/* Panel */}
             <motion.div
               className="relative z-10 w-full max-w-lg flex flex-col rounded-3xl overflow-hidden
-                         bg-white/95 backdrop-blur-md shadow-2xl shadow-pink-200/40"
+                         bg-white/95 dark:bg-[#140a30]/95 backdrop-blur-md shadow-2xl shadow-pink-200/40 dark:shadow-purple-950/40"
               style={{ height: '85vh' }}
               initial={{ y: 32, opacity: 0, scale: 0.97 }}
               animate={{ y: 0, opacity: 1, scale: 1 }}
@@ -154,11 +154,11 @@ export function CroustiMessage({ user }: { user: User }) {
               transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
             >
               {/* Header */}
-              <div className="flex items-center justify-between px-5 py-4 border-b border-pink-100 shrink-0">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-pink-100 dark:border-pink-900/30 shrink-0">
                 <div className="flex items-center gap-2">
                   <span className="text-xl" role="img" aria-label="lettre">💌</span>
                   <h2
-                    className="font-bold text-pink-700"
+                    className="font-bold text-pink-700 dark:text-pink-200"
                     style={{ fontFamily: '"Varela Round", sans-serif' }}
                   >
                     Crousti-message
@@ -166,7 +166,7 @@ export function CroustiMessage({ user }: { user: User }) {
                 </div>
                 <button
                   onClick={closeModal}
-                  className="text-pink-300 hover:text-pink-500 transition-colors cursor-pointer p-1"
+                  className="text-pink-300 hover:text-pink-500 dark:text-pink-400 dark:hover:text-pink-200 transition-colors cursor-pointer p-1"
                   aria-label="Fermer"
                 >
                   <X size={20} />
@@ -178,7 +178,7 @@ export function CroustiMessage({ user }: { user: User }) {
                 {messages.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full text-center gap-3">
                     <span className="text-5xl">💕</span>
-                    <p className="text-pink-400 text-sm leading-relaxed">
+                    <p className="text-pink-400 dark:text-pink-300 text-sm leading-relaxed">
                       Aucun message pour l'instant.
                       <br />
                       Soyez le premier à en envoyer un !
@@ -199,12 +199,12 @@ export function CroustiMessage({ user }: { user: User }) {
                           className={`max-w-[75%] px-4 py-2.5 text-sm leading-relaxed break-words ${
                             isMine
                               ? 'bg-gradient-to-br from-pink-400 to-violet-400 text-white rounded-2xl rounded-br-sm'
-                              : 'bg-pink-50 text-pink-800 rounded-2xl rounded-bl-sm'
+                              : 'bg-pink-50 dark:bg-pink-950/40 text-pink-800 dark:text-pink-100 rounded-2xl rounded-bl-sm'
                           }`}
                         >
                           {msg.content}
                         </div>
-                        <span className="text-pink-300 text-xs px-1">{fmtTime(msg.created_at)}</span>
+                        <span className="text-pink-300 dark:text-pink-400 text-xs px-1">{fmtTime(msg.created_at)}</span>
                       </motion.div>
                     )
                   })
@@ -213,7 +213,7 @@ export function CroustiMessage({ user }: { user: User }) {
               </div>
 
               {/* Input */}
-              <div className="px-4 py-4 border-t border-pink-100 shrink-0">
+              <div className="px-4 py-4 border-t border-pink-100 dark:border-pink-900/30 shrink-0">
                 <form
                   onSubmit={(e) => { e.preventDefault(); send() }}
                   className="flex gap-2"

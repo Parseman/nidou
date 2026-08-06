@@ -243,12 +243,12 @@ export function CroustiArt({ user, compact = false }: { user: User; compact?: bo
           ) : (
             <div className="p-6">
               <div className="flex items-center justify-between mb-3">
-                <h2 className="font-bold text-pink-700 text-sm" style={{ fontFamily: '"Varela Round", sans-serif' }}>
+                <h2 className="font-bold text-pink-700 dark:text-pink-200 text-sm" style={{ fontFamily: '"Varela Round", sans-serif' }}>
                   🎨 CroustiArt
                 </h2>
-                <span className="text-pink-300 text-xs group-hover:text-pink-500 transition-colors">→</span>
+                <span className="text-pink-300 dark:text-pink-400 text-xs group-hover:text-pink-500 dark:group-hover:text-pink-200 transition-colors">→</span>
               </div>
-              <p className="text-pink-400 text-sm">Dessine quelque chose pour ton partenaire !</p>
+              <p className="text-pink-400 dark:text-pink-300 text-sm">Dessine quelque chose pour ton partenaire !</p>
             </div>
           )}
           {hasNew && (
@@ -271,7 +271,7 @@ export function CroustiArt({ user, compact = false }: { user: User; compact?: bo
 
             <motion.div
               className="relative z-10 w-full max-w-lg flex flex-col rounded-3xl overflow-hidden
-                         bg-white/95 backdrop-blur-md shadow-2xl shadow-pink-200/40"
+                         bg-white/95 dark:bg-[#140a30]/95 backdrop-blur-md shadow-2xl shadow-pink-200/40 dark:shadow-purple-950/40"
               style={{ height: '85vh' }}
               initial={{ y: 32, opacity: 0, scale: 0.97 }}
               animate={{ y: 0, opacity: 1, scale: 1 }}
@@ -279,19 +279,19 @@ export function CroustiArt({ user, compact = false }: { user: User; compact?: bo
               transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
             >
               {/* Header */}
-              <div className="flex items-center justify-between px-5 py-4 border-b border-pink-100 shrink-0">
-                <h2 className="font-bold text-pink-700" style={{ fontFamily: '"Varela Round", sans-serif' }}>
+              <div className="flex items-center justify-between px-5 py-4 border-b border-pink-100 dark:border-pink-900/30 shrink-0">
+                <h2 className="font-bold text-pink-700 dark:text-pink-200" style={{ fontFamily: '"Varela Round", sans-serif' }}>
                   🎨 CroustiArt
                 </h2>
-                <button onClick={() => setIsOpen(false)} className="text-pink-300 hover:text-pink-500 transition-colors cursor-pointer p-1">
+                <button onClick={() => setIsOpen(false)} className="text-pink-300 hover:text-pink-500 dark:text-pink-400 dark:hover:text-pink-200 transition-colors cursor-pointer p-1">
                   <X size={20} />
                 </button>
               </div>
 
               <div className="flex-1 overflow-y-auto">
                 {/* Canvas + outils */}
-                <div className="px-5 py-4 border-b border-pink-50">
-                  <div className="rounded-2xl overflow-hidden border-2 border-pink-100 mb-4">
+                <div className="px-5 py-4 border-b border-pink-50 dark:border-pink-900/20">
+                  <div className="rounded-2xl overflow-hidden border-2 border-pink-100 dark:border-pink-900/30 mb-4">
                     <canvas
                       ref={canvasRef}
                       width={CANVAS_SIZE}
@@ -338,16 +338,16 @@ export function CroustiArt({ user, compact = false }: { user: User; compact?: bo
                           key={hex}
                           onClick={() => pickFixed(hex)}
                           className={`w-7 h-7 rounded-full border-2 transition-transform cursor-pointer shrink-0
-                            ${!isEraser && color === hex ? 'scale-125 border-pink-500' : hex === '#ffffff' ? 'border-pink-100 hover:scale-110' : 'border-transparent hover:scale-110'}`}
+                            ${!isEraser && color === hex ? 'scale-125 border-pink-500' : hex === '#ffffff' ? 'border-pink-100 dark:border-pink-800/40 hover:scale-110' : 'border-transparent hover:scale-110'}`}
                           style={{ backgroundColor: hex }}
                           aria-label={label}
                         />
                       ))}
-                      <div className="w-px h-5 bg-pink-100 mx-0.5 shrink-0" aria-hidden />
+                      <div className="w-px h-5 bg-pink-100 dark:bg-pink-900/30 mx-0.5 shrink-0" aria-hidden />
                       <button
                         onClick={activateEraser}
                         className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-medium transition-all cursor-pointer shrink-0
-                          ${isEraser ? 'bg-pink-100 border-pink-400 text-pink-600' : 'border-pink-100 text-pink-300 hover:border-pink-300 hover:text-pink-500'}`}
+                          ${isEraser ? 'bg-pink-100 dark:bg-pink-900/30 border-pink-400 text-pink-600 dark:text-pink-300' : 'border-pink-100 dark:border-pink-900/30 text-pink-300 dark:text-pink-400 hover:border-pink-300 hover:text-pink-500 dark:hover:text-pink-200'}`}
                         aria-label="Gomme"
                       >
                         <Eraser size={12} />
@@ -364,7 +364,7 @@ export function CroustiArt({ user, compact = false }: { user: User; compact?: bo
                           key={s}
                           onClick={() => setBrushSize(s)}
                           className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all cursor-pointer
-                            ${brushSize === s ? 'border-pink-400 bg-pink-50' : 'border-pink-100 hover:border-pink-200'}`}
+                            ${brushSize === s ? 'border-pink-400 bg-pink-50 dark:bg-pink-950/40' : 'border-pink-100 dark:border-pink-900/30 hover:border-pink-200'}`}
                         >
                           <span className="rounded-full bg-pink-400" style={{ width: s, height: s }} />
                         </button>
@@ -374,7 +374,7 @@ export function CroustiArt({ user, compact = false }: { user: User; compact?: bo
                     <div className="flex gap-2">
                       <button
                         onClick={clearCanvas}
-                        className="flex items-center gap-1.5 text-sm text-pink-400 hover:text-pink-600 transition-colors cursor-pointer px-3 py-2"
+                        className="flex items-center gap-1.5 text-sm text-pink-400 dark:text-pink-300 hover:text-pink-600 dark:hover:text-pink-100 transition-colors cursor-pointer px-3 py-2"
                       >
                         <Trash2 size={14} />
                         Effacer
@@ -394,7 +394,7 @@ export function CroustiArt({ user, compact = false }: { user: User; compact?: bo
                 {/* Galerie */}
                 {artworks.length > 0 && (
                   <div className="px-5 py-4">
-                    <p className="text-xs font-semibold text-pink-400 uppercase tracking-wide mb-3">
+                    <p className="text-xs font-semibold text-pink-400 dark:text-pink-300 uppercase tracking-wide mb-3">
                       Galerie
                     </p>
                     <div className="grid grid-cols-3 gap-2">
@@ -403,9 +403,9 @@ export function CroustiArt({ user, compact = false }: { user: User; compact?: bo
                           <img
                             src={a.image_url}
                             alt="Œuvre"
-                            className="w-full aspect-square object-cover rounded-xl border border-pink-100"
+                            className="w-full aspect-square object-cover rounded-xl border border-pink-100 dark:border-pink-900/30"
                           />
-                          <p className="text-xs text-pink-400 text-center mt-1 truncate">
+                          <p className="text-xs text-pink-400 dark:text-pink-300 text-center mt-1 truncate">
                             {a.sender_id === user.id ? 'Moi' : (a.sender_name ?? '?')}
                           </p>
                         </div>
