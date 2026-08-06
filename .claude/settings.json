@@ -46,7 +46,15 @@
       "Bash(python3 -c \"import datetime; print\\(datetime.date\\(2026,8,3\\).strftime\\('%A'\\)\\)\")",
       "Bash(curl -s -w \"\\\\nHTTP_STATUS:%{http_code}\\\\n\" -X POST \"https://xymhisdmffdgarabglne.supabase.co/functions/v1/daily-reminder\" -H \"Content-Type: application/json\" -H \"Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh5bWhpc2RtZmZkZ2FyYWJnbG5lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwMjI2NDYsImV4cCI6MjA5MzU5ODY0Nn0.JGWrH4yMXjI_6ngE1mkYMc38Gz8tpCM87YrEvFF4QHQ\" -d '{}')",
       "Bash(node -e \"console.log\\(new Date\\(\\).toLocaleDateString\\('en-US', { weekday: 'long', timeZone: 'Europe/Paris' }\\)\\); console.log\\(new Date\\(\\).toISOString\\(\\)\\)\")",
-      "Bash(fc /b \"public\\\\battle-cover.png\" \"public\\\\jaja.png\")"
+      "Bash(fc /b \"public\\\\battle-cover.png\" \"public\\\\jaja.png\")",
+      "Bash(git commit *)",
+      "Bash(xargs grep -l \"channel\\(\")",
+      "Bash(tail -5 /tmp/vite.log)",
+      "Read(//tmp/**)",
+      "Bash(command -v chromium-cli)",
+      "Bash(npx --no-install chromium-cli --help)",
+      "Bash(npm ls *)",
+      "Bash(echo \"exit:$?\")"
     ],
     "additionalDirectories": [
       "C:\\Users\\cleme\\crousti-histoire\\src",
