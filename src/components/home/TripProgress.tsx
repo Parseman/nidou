@@ -75,7 +75,7 @@ export function TripProgress({ user }: { user: User }) {
   const partnerPct = partner ? progressPct(partner.departure_date, partner.arrival_date) : null
 
   return (
-    <div className="flex items-center gap-2 flex-1 min-w-0 mx-3">
+    <div className="flex items-center gap-2 w-full min-w-0">
       <div className="relative flex-1 min-w-[40px] h-5">
         <div className="absolute left-[9px] right-[9px] top-1/2 -translate-y-1/2 h-1.5 bg-pink-100 dark:bg-pink-900/40 rounded-full" />
         <div className="absolute left-[9px] right-[9px] top-0 bottom-0">

@@ -35,7 +35,7 @@ export function HomePage({ user, onSignOut }: Props) {
 
       {/* Sticky navbar */}
       <nav className="sticky top-0 z-50 px-4 pt-4 pb-2">
-        <div className="max-w-5xl mx-auto glass-card rounded-2xl px-5 py-3 flex items-center justify-between">
+        <div className="max-w-5xl mx-auto glass-card rounded-2xl px-5 py-3 flex flex-wrap items-center justify-between">
           <div className="flex items-center gap-2 shrink-0">
             <span className="text-xl" role="img" aria-label="nid d'oiseau">🪺</span>
             <span
@@ -54,9 +54,11 @@ export function HomePage({ user, onSignOut }: Props) {
             )}
           </div>
 
-          <TripProgress user={user} />
+          <div className="order-3 sm:order-2 w-full sm:w-auto sm:flex-1 sm:min-w-0 mt-2 sm:mt-0 pt-2 sm:pt-0 sm:mx-3 border-t sm:border-t-0 border-pink-100 dark:border-pink-900/40">
+            <TripProgress user={user} />
+          </div>
 
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="order-2 sm:order-3 flex items-center gap-3 shrink-0">
             <span className="text-pink-400 dark:text-pink-300 text-xs hidden sm:block truncate max-w-[180px]">
               {user.user_metadata?.first_name ?? user.email}
             </span>

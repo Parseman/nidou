@@ -417,7 +417,9 @@ Realtime : `postgres_changes` (`*`).
 - Au login, si `Notification.permission === 'granted'`, appelle `registerPush` silencieusement.
 
 ### HomePage
-- Navbar : logo 🪺 + "Nidou" + streak 🔥N, puis `TripProgress` (barre de trajet, prend l'espace restant), puis nom + Paramètres + Déconnexion — tout sur une seule ligne.
+- Navbar : logo 🪺 + "Nidou" + streak 🔥N, puis `TripProgress` (barre de trajet), puis nom + Paramètres + Déconnexion.
+  - **PC (`sm:` et plus)** : tout sur une seule ligne, `TripProgress` au milieu (`sm:flex-1`) entre le streak et le nom.
+  - **Mobile (< `sm`)** : `flex-wrap` sur le conteneur — `TripProgress` passe en pleine largeur (`w-full`) donc wrap automatiquement sur une 2e ligne sous logo/streak + nom/boutons (réordonnée en dernier via `order-3`, séparée par une bordure `border-t`). Un seul montage du composant (jamais dupliqué dans le DOM) — seul son wrapper change de largeur/ordre par breakpoint, pour éviter le piège realtime double-montage (voir `PhoneModal`).
 - Grille principale : `NextMeetingCard`, `DefiLundi`, `CoinPot`, `DistanceCard` — 1 colonne mobile, 2 (`md`), 4 sur la même ligne en PC (`lg:grid-cols-4`, conteneur `lg:max-w-5xl`).
 - Hero, cartes principales et footer sont en tailles compactes sur mobile (padding, marges, tailles de police réduites sans préfixe Tailwind) et retrouvent leur taille normale à partir de `md:` — objectif : limiter le scroll vertical sur mobile où les 4 cartes s'empilent en 1 colonne. Toute nouvelle carte ajoutée à cette grille doit suivre le même pattern (`p-4 md:p-6`, `mb-2 md:mb-4`, texte agrandi via `md:text-*` plutôt que par défaut).
 - Accès à `PhoneModal` — seul point d'entrée vers les jeux (Nidou, CroustiArt, Photo Duel, Combat), qu'on soit sur mobile, tablette ou PC :
