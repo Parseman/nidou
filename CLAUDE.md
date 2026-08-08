@@ -51,6 +51,7 @@ src/
   lib/photoGameThemes.ts     # tableau THEMES[200] — thèmes du Photo Duel
   lib/photoGameSchedule.ts   # getRoundBoundaries() — calendrier fixe jeudi 00h00 → mardi 23h59 (Europe/Paris, DST-safe)
   lib/wallet.ts              # awardCoins(userId, amount) — RPC award_coins, crédite la bourse individuelle d'un user
+  lib/marketItems.ts         # tableau MARKET_ITEMS[34] — catalogue du Marché (id, label, price, tier), prix fixes codés en dur
   components/
     auth/AuthPage.tsx        # Formulaire login (email/password)
     home/
@@ -66,6 +67,7 @@ src/
       CroustiArt.tsx         # Dessin collaboratif : hue slider dégradé + gomme + 2 couleurs fixes
       PhotoGame.tsx          # Jeu Photo Duel : upload photo sur thème, vote 👍/👎, rotation 200 thèmes
     BattleGame.tsx         # Jeu Combat : items spawn 3-7h, inventaire, épée/bouclier/cœur, forge enclume, 2 canvas 3D (prisca.glb / cookie.glb)
+    Marche.tsx             # Marché : achat de demandes à l'autre avec la bourse individuelle, self-contained comme PhotoGame/BattleGame (icône emoji, pas d'asset image)
 public/
   nidouchat-v1.glb          # Modèle 3D du chat (Poly Pizza) — utilisé dans NidouChat.tsx
   prisca.glb                # Modèle 3D chat de Clément (Battle Game, côté gauche)
@@ -87,6 +89,7 @@ supabase/
     check-streak-push/      # Push 20h+23h Paris si user pas connecté aujourd'hui (streak en danger)
     notify-photo-game/      # Push événements Photo Duel : upload, vote dispo, résultats
     check-photo-game-push/  # Rappels Photo Duel upload/vote en retard (pg_cron matin 7h UTC)
+    notify-market/          # Push événements Marché : item_purchased, item_fulfilled
 ```
 
 ## Navigation
@@ -243,6 +246,24 @@ RLS : SELECT pour tous les authentifiés, écriture uniquement via `advance_phot
 Alimentée automatiquement par `advance_photo_game()` : chaque tour (même incomplet, sans photo) est archivé avant réinitialisation, pour un historique complet.
 Consultée dans `PhotoGame.tsx` via le bouton historique (icône ☰) à côté du compte à rebours — modale listant thème, date, les 2 photos et les votes de chaque tour passé, la plus récente en premier.
 
+### `market_purchases`
+| Colonne      | Type        | Notes                                                        |
+|--------------|-------------|--------------------------------------------------------------|
+| id           | text PK     | `gen_random_uuid()::text`                                    |
+| item_id      | text        | Référence l'`id` dans `MARKET_ITEMS` (`src/lib/marketItems.ts`) |
+| item_label   | text        | Cache du libellé au moment de l'achat (résiste aux évolutions du catalogue) |
+| price        | integer     | Prix payé, cache (résiste aux évolutions du catalogue)       |
+| buyer_id     | text        | user.id de l'acheteur (celui qui paie et reçoit la demande réalisée) |
+| buyer_name   | text        | Cache de first_name de l'acheteur                             |
+| status       | text        | `pending` / `done`                                            |
+| proof_url    | text        | URL Supabase Storage, nullable (preuve optionnelle)           |
+| completed_at | timestamptz | nullable                                                      |
+| created_at   | timestamptz |                                                              |
+
+RLS : SELECT pour tous les authentifiés, INSERT pour sa propre ligne (`buyer_id = auth.uid()`), UPDATE ouvert à tous les authentifiés (c'est le partenaire, pas l'acheteur, qui marque la demande `done` — même logique que `battle_state`/`user_wallet`/`feedback_reports`).
+Storage : bucket `market` (public), chemin `{purchase_id}/{timestamp}.{ext}`.
+Realtime : `postgres_changes` (`*`).
+
 ## Règles métier — Défi du début de semaine
 
 - **Création** : lundi, mardi ou mercredi uniquement. Sinon, message d'attente.
@@ -350,6 +371,18 @@ Consultée dans `PhotoGame.tsx` via le bouton historique (icône ☰) à côté 
 - Le défi hebdo crédite `completed_by` (celui qui a relevé le défi), pas `user.id` du validateur — la validation peut donc créditer la bourse du partenaire (RLS `user_wallet_update_all` ouvert, comme `battle_state`).
 - La participation Photo Duel ne récompense que l'upload (premier ou second slot), pas le vote.
 - Pas de récompense pour le vote Photo Duel, le soin (cœur) ou l'activation de bouclier en Combat — seule l'attaque à l'épée en rapporte.
+- Le Marché (voir « Règles métier — Marché ») est le seul **débit** volontaire de la bourse — tout le reste ne fait que créditer.
+
+## Règles métier — Marché 🛍️
+
+- Catalogue de 34 demandes à prix fixe, codé en dur dans `MARKET_ITEMS` (`src/lib/marketItems.ts`), classé en 3 paliers de rareté (`MarketTier`) :
+  - `frequent` (200-450 🪙) : petites attentions, photos/vidéos rapides — pensé pour rester accessible 2-3×/semaine.
+  - `occasional` (600-900 🪙) : moments partagés, gages plus engageants — ~1×/semaine.
+  - `rare` (2200-2600 🪙) : cartes postales, repas cuisiné précis, film ensemble, soirée à thème — pensé pour rester rare, 1-2×/mois.
+- **Achat** (`Marche.tsx`, `buy()`) : débite immédiatement l'acheteur via `awardCoins(user.id, -item.price)` (négatif — la RPC `award_coins` gère aussi bien crédit que débit) et insère une ligne `market_purchases` (`status: 'pending'`). Bouton désactivé si le solde (`user_wallet.coins`, lu + Realtime) est insuffisant.
+- **Réalisation** : le partenaire (jamais l'acheteur) marque la demande `done` depuis la section « Demandes reçues », avec une preuve photo optionnelle (upload Storage `market`, même pattern que `challenges`). Aucun mouvement de pièces à la réalisation — le paiement a déjà eu lieu à l'achat.
+- Pas de délai/deadline imposé sur la réalisation (contrairement au défi hebdo) — la demande reste `pending` indéfiniment jusqu'à ce que le partenaire la traite.
+- **Notifications** : edge function `notify-market`, deux types, tous deux en excluant l'auteur de l'action (`exclude_user_id`, jamais de lookup explicite de l'id du partenaire) : achat → `item_purchased` (cible le partenaire, qui doit réaliser la demande) ; réalisation → `item_fulfilled` (cible l'acheteur, dont la demande vient d'être honorée).
 
 ## Composants — points clés
 
@@ -403,6 +436,12 @@ Consultée dans `PhotoGame.tsx` via le bouton historique (icône ☰) à côté 
 - Vote : détermine `mySlot` (1 ou 2) depuis `photo_1/2_user_id`, écrit dans `vote_2` si slot 1 ou `vote_1` si slot 2.
 - Countdown + verrouillage (`locked`) calculés via `getRoundBoundaries()` (`src/lib/photoGameSchedule.ts`), recalculés à chaque tick (60s) : avant la deadline mardi 23h59 → countdown vers la deadline ; après (mercredi, verrouillé) ou en `done` → countdown vers le jeudi 00h00 suivant, moment où `advance_photo_game()` est appelé côté client.
 
+### Marche.tsx
+- Self-contained comme `PhotoGame`/`BattleGame`, mais icône sans asset image : gradient (amber/orange/pink) + emoji `🛍️` centré, plus léger que les autres cards (pas de `public/*.png` dédié).
+- Bulle rouge avec le nombre de demandes en attente (`pendingForMe.length`, plafonné à "9+") sur l'icône et à côté du titre de la section « Demandes reçues » dans la modale, dès qu'au moins une demande achetée par le partenaire attend d'être réalisée.
+- Modale en 4 sections empilées : demandes reçues (à réaliser, avec bouton « Marquer comme fait » + upload photo optionnel), mes achats en attente (lecture seule, en attente que le partenaire les réalise), catalogue complet groupé par palier (`TIER_LABEL`), historique des demandes honorées.
+- Solde affiché dans le header de la modale (`user_wallet.coins` de l'utilisateur courant, lu au montage + Realtime) — les boutons « Acheter » du catalogue se désactivent si le solde est insuffisant.
+
 ### NidouChat.tsx (export : `NidouChatIcon`)
 - Self-contained comme `PhotoGame`/`BattleGame` : state `open` local, card cliquable avec `public/nidou-cover.png` en image de fond → ouvre une modale par-dessus le contexte courant (ne navigue jamais, donc reste au-dessus du `PhoneModal` s'il est ouvert).
 - Card : overlay gradient bas (nom "Nidou", humeur, 3 dots colorés), badge `!` si une action est disponible.
@@ -432,8 +471,9 @@ Consultée dans `PhotoGame.tsx` via le bouton historique (icône ☰) à côté 
 - **`photo-game-advance-new-theme`** (pg_cron, `*/15 * * * *`, pas une edge function) : seul déclencheur de l'avance de partie. Appelle `advance_photo_game()` puis POST directement vers `notify-photo-game` (`type: new_theme`) via `net.http_post` si la partie a réellement avancé. Le client (`PhotoGame.tsx`) ne fait plus cet appel lui-même (retiré volontairement) : il se contente de lire l'état via `select` + Realtime.
 - **`battle-spawn-advance`** (pg_cron, `*/15 * * * *`, pas une edge function) : seul déclencheur de l'apparition des items de Combat. Appelle `advance_battle_spawn()` puis POST directement vers `notify-battle` (`type: item_spawned`, `item_type`) via `net.http_post` si un nouvel item est réellement apparu. Le client (`BattleGame.tsx`) ne fait plus cet appel lui-même (retiré volontairement, même logique que Photo Duel) : il se contente de lire l'état via `select` + Realtime (`loadSpawn()`).
 - **`notify-meeting-date`** : appelée depuis le client (`NextMeetingCard.tsx`) après un `save()` réussi avec une `next_meeting_date` définie. Broadcast aux deux users (y compris l'auteur de la modification). Titre "Date mise à jour !", corps "Plus que X jours avant de se revoir..." (calculé côté client avec `daysRemaining()`, cas particuliers pour 0 et négatif).
+- **`notify-market`** : `--no-verify-jwt`. Appelée depuis le client (`Marche.tsx`) uniquement — pas de cron, contrairement à Photo Duel/Combat, car l'achat et la réalisation sont toujours des actions directes d'un joueur. Types : `item_purchased` (exclut l'acheteur, cible le partenaire qui doit réaliser la demande), `item_fulfilled` (exclut celui qui vient de réaliser la demande, cible l'acheteur).
 - **iOS** : Web Push nécessite d'ajouter l'app à l'écran d'accueil depuis Safari.
-- **Convention fonctions appelées depuis le client** (`notify-battle`, `notify-photo-game`, `notify-meeting-date` — fetch direct avec header `Authorization` custom, pas `supabase.functions.invoke`) : toujours déployer avec `--no-verify-jwt`. Sans ce flag, la gateway Supabase exige un JWT valide même sur le preflight CORS (`OPTIONS`, qui n'a jamais de header `Authorization`) et le rejette avant que la fonction ne s'exécute — le `fetch` échoue silencieusement côté client (catché en `non-bloquant`), sans notif ni erreur visible. Chaque fonction gère aussi explicitement `OPTIONS` (early return avec headers `Access-Control-Allow-*`) et n'a **jamais** de valeur par défaut correspondant à un vrai type de notif (le fallback doit tomber dans la branche "Type inconnu" / un guard de méthode, sinon un `OPTIONS` ou un body vide déclenche un vrai push).
+- **Convention fonctions appelées depuis le client** (`notify-battle`, `notify-photo-game`, `notify-meeting-date`, `notify-market` — fetch direct avec header `Authorization` custom, pas `supabase.functions.invoke`) : toujours déployer avec `--no-verify-jwt`. Sans ce flag, la gateway Supabase exige un JWT valide même sur le preflight CORS (`OPTIONS`, qui n'a jamais de header `Authorization`) et le rejette avant que la fonction ne s'exécute — le `fetch` échoue silencieusement côté client (catché en `non-bloquant`), sans notif ni erreur visible. Chaque fonction gère aussi explicitement `OPTIONS` (early return avec headers `Access-Control-Allow-*`) et n'a **jamais** de valeur par défaut correspondant à un vrai type de notif (le fallback doit tomber dans la branche "Type inconnu" / un guard de méthode, sinon un `OPTIONS` ou un body vide déclenche un vrai push).
 
 ## Migrations SQL
 
@@ -462,6 +502,7 @@ Consultée dans `PhotoGame.tsx` via le bouton historique (icône ☰) à côté 
 21. `20260808_battle_spawn_cron.sql` — cron `battle-spawn-advance` (`*/15 * * * *`, remplacer `<SERVICE_ROLE_KEY>`) qui appelle `advance_battle_spawn()` et envoie le push `item_spawned` côté serveur si un nouvel item est réellement apparu — l'apparition des items de Combat ne dépend plus d'un client ouvert au bon moment (même remède que `20260805_photo_game_new_theme_cron.sql` pour Photo Duel)
 22. `20260808_photo_game_history.sql` — table `photo_game_history` (archive en lecture seule des tours Photo Duel passés) + RLS + `advance_photo_game()` modifiée pour archiver le tour courant avant réinitialisation — alimente le bouton historique de `PhotoGame.tsx`
 23. `20260808_feedback_reports.sql` — table `feedback_reports` (idées/bugs signalés par les users) + RLS (lecture/suppression ouvertes aux deux, insert own) — alimente la section "Idées & bugs" de `SettingsModal.tsx`
+24. `20260808_market.sql` — table `market_purchases` (achats de demandes via la bourse individuelle) + RLS (lecture ouverte, insert own, update ouvert) + realtime ; bucket Storage `market` à créer manuellement dans le dashboard (public, comme `challenges`/`photo-game`)
 
 ## Conventions
 

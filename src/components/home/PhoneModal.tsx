@@ -5,6 +5,7 @@ import { NidouChatIcon } from './NidouChat'
 import { CroustiArt } from './CroustiArt'
 import { PhotoGame } from './PhotoGame'
 import { BattleGame } from './BattleGame'
+import { Marche } from './Marche'
 
 type Props = {
   open: boolean
@@ -97,6 +98,7 @@ export function PhoneModal({ open, onClose, user }: Props) {
                     <div className="w-full max-w-[140px] lg:w-[92px]"><CroustiArt user={user} compact /></div>
                     <div className="w-full max-w-[140px] lg:w-[92px]"><PhotoGame user={user} /></div>
                     <div className="w-full max-w-[140px] lg:w-[92px]"><BattleGame user={user} /></div>
+                    <div className="w-full max-w-[140px] lg:w-[92px]"><Marche user={user} /></div>
                   </div>
                 </div>
 
