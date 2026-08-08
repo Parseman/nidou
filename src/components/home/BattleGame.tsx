@@ -211,16 +211,12 @@ export function BattleGame({ user }: { user: User }) {
     if (data) setInventory(data as InventoryItem[])
   }, [user.id])
 
-  const checkSpawn = useCallback(async () => {
-    const { data: spawned } = await supabase.rpc('advance_battle_spawn')
+  const loadSpawn = useCallback(async () => {
     const { data } = await supabase.from('battle_spawn').select('*').eq('id', 1).single()
     if (!data) return
     const s = data as SpawnRow
     setSpawn(s)
     if (!s.claimed_by) setShowItemModal(true)
-    if (spawned) {
-      await sendNotif('item_spawned', { item_type: s.item_type })
-    }
   }, [])
 
   useEffect(() => {
@@ -231,7 +227,7 @@ export function BattleGame({ user }: { user: User }) {
     ).then(() => {
       loadStates()
       loadInventory()
-      checkSpawn()
+      loadSpawn()
     })
 
     const ch1 = supabase
@@ -252,7 +248,7 @@ export function BattleGame({ user }: { user: User }) {
       supabase.removeChannel(ch1)
       supabase.removeChannel(ch2)
     }
-  }, [user.id, loadStates, loadInventory, checkSpawn, instanceId])
+  }, [user.id, loadStates, loadInventory, loadSpawn, instanceId])
 
   function flash(msg: string) {
     setActionMsg(msg)

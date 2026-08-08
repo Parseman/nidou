@@ -54,7 +54,18 @@
       "Bash(command -v chromium-cli)",
       "Bash(npx --no-install chromium-cli --help)",
       "Bash(npm ls *)",
-      "Bash(echo \"exit:$?\")"
+      "Bash(echo \"exit:$?\")",
+      "WebFetch(domain:k-chroniques.vercel.app)",
+      "WebFetch(domain:crousti-histoire.vercel.app)",
+      "Bash(curl -s https://k-chroniques.vercel.app/)",
+      "Bash(curl -s https://crousti-histoire.vercel.app/)",
+      "Bash(curl -s -o /dev/null -w \"k-chroniques favicon.ico: %{http_code}\\\\n\" https://k-chroniques.vercel.app/favicon.ico)",
+      "Bash(curl -s -o /dev/null -w \"crousti-histoire favicon.ico: %{http_code}\\\\n\" https://crousti-histoire.vercel.app/favicon.ico)",
+      "Bash(curl -s -o /dev/null -w \"k-chroniques favicon-32: %{http_code}\\\\n\" https://k-chroniques.vercel.app/assets/icons/favicon-32.png)",
+      "Bash(curl -s -o /dev/null -w \"crousti-histoire favicon.svg: %{http_code}\\\\n\" https://crousti-histoire.vercel.app/favicon.svg)",
+      "Bash(curl -s -o /dev/null -w \"apple-touch-icon: %{http_code}\\\\n\" https://k-chroniques.vercel.app/assets/icons/apple-touch-icon.png)",
+      "Bash(curl -sI https://k-chroniques.vercel.app/assets/icons/apple-touch-icon.png)",
+      "Bash(curl -sI https://k-chroniques.vercel.app/assets/icons/favicon-32.png)"
     ],
     "additionalDirectories": [
       "C:\\Users\\cleme\\crousti-histoire\\src",

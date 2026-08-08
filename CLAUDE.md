@@ -211,7 +211,25 @@ Realtime : UPDATE subscription (DistanceCard recalcule dès que le partenaire sa
 
 Storage : bucket `photo-game` (public), chemin `{theme_index}/{user_id}/{timestamp}.{ext}`.
 Realtime : UPDATE subscription.
-RPC `advance_photo_game()` : atomique (FOR UPDATE), avance si `done` ou `active + expiré > 3j`.
+RPC `advance_photo_game()` : atomique (FOR UPDATE), avance dès que `started_at` appartient à une semaine antérieure au jeudi 00h00 Paris courant (voir calendrier fixe ci-dessous) — archive d'abord le tour courant dans `photo_game_history` avant de réinitialiser la ligne.
+
+### `photo_game_history`
+| Colonne          | Type        | Notes                                                        |
+|------------------|-------------|--------------------------------------------------------------|
+| id               | serial PK   |                                                              |
+| theme_index      | integer     | Index dans THEMES[200] du tour archivé                       |
+| started_at       | timestamptz | Début du tour archivé                                        |
+| ended_at         | timestamptz | Moment de l'archivage (= avance vers le tour suivant)         |
+| photo_1_url      | text        |                                                              |
+| photo_1_user_id  | text        |                                                              |
+| photo_2_url      | text        |                                                              |
+| photo_2_user_id  | text        |                                                              |
+| vote_1           | boolean     |                                                              |
+| vote_2           | boolean     |                                                              |
+
+RLS : SELECT pour tous les authentifiés, écriture uniquement via `advance_photo_game()` (SECURITY DEFINER), jamais depuis le client.
+Alimentée automatiquement par `advance_photo_game()` : chaque tour (même incomplet, sans photo) est archivé avant réinitialisation, pour un historique complet.
+Consultée dans `PhotoGame.tsx` via le bouton historique (icône ☰) à côté du compte à rebours — modale listant thème, date, les 2 photos et les votes de chaque tour passé, la plus récente en premier.
 
 ## Règles métier — Défi du début de semaine
 
@@ -239,7 +257,7 @@ RPC `advance_photo_game()` : atomique (FOR UPDATE), avance si `done` ou `active 
 
 ## Règles métier — Combat ⚔️
 
-- **Spawn items** : `advance_battle_spawn()` RPC (atomique FOR UPDATE), appelé côté client au chargement. Délai aléatoire 3-7h entre chaque item. Types : épée, cœur, bouclier. Ligne unique `battle_spawn id=1`. Quand un item apparaît et `claimed_by IS NULL` → modal automatique. Une fois récupéré, l'autre ne peut plus l'avoir (UPDATE avec `.is('claimed_by', null)` atomique).
+- **Spawn items** : `advance_battle_spawn()` RPC (atomique FOR UPDATE). Délai aléatoire 3-7h entre chaque item. Types : épée, cœur, bouclier. Ligne unique `battle_spawn id=1`. Quand un item apparaît et `claimed_by IS NULL` → modal automatique. Une fois récupéré, l'autre ne peut plus l'avoir (UPDATE avec `.is('claimed_by', null)` atomique). Déclenché exclusivement par le cron serveur `battle-spawn-advance` (`*/15 * * * *`) — le client ne fait plus d'appel à `advance_battle_spawn()` (retiré volontairement, même raison que pour Photo Duel : l'apparition d'un item et sa notif ne doivent jamais dépendre du fait que quelqu'un ouvre l'app). `BattleGame.tsx` se contente de lire l'état courant (`loadSpawn()` : `select` + Realtime `postgres_changes` sur `UPDATE`) pour refléter l'avance faite par le cron.
 - **Inventaire** : `battle_inventory`, privé (RLS own-only). Types : `sword`, `enhanced_sword`, `heart`, `shield`, `enhanced_shield`.
 - **Forge** : 3 épées → 1 `enhanced_sword` (-5 PV) ; 3 boucliers → 1 `enhanced_shield` (3 charges + riposte).
 - **Combat** : client-side avec mises à jour croisées (RLS UPDATE permet à tout authentifié de modifier n'importe quelle ligne de `battle_state`).
@@ -253,7 +271,7 @@ RPC `advance_photo_game()` : atomique (FOR UPDATE), avance si `done` ou `active 
 - **HP** : 0-10. Cœur = +1 PV (max 10), +5 XP.
 - **Bouclier actif** : stocké dans `battle_state.shield_type` + `shield_charges` (1 pour normal, 3 pour amélioré). Activation = suppression de l'inventaire + écriture dans battle_state.
 - **Visibilité** : `battle_state` public (HP, XP, bouclier visible des deux). `battle_inventory` privé.
-- **Notifications** : edge function `notify-battle`, appelée depuis le client. Types : `item_spawned`, `item_claimed`, `battle_action`. `item_spawned` envoyé par `checkSpawn()` (BattleGame.tsx) uniquement quand `advance_battle_spawn()` retourne `true` (nouvel item réellement apparu à cet appel, évite les doublons si les deux joueurs chargent l'app en même temps) — titre "Item apparu", description "{Item} vient d'apparaître ! Récupère-le avant l'autre."
+- **Notifications** : edge function `notify-battle`. Types : `item_spawned`, `item_claimed`, `battle_action`. `item_claimed` et `battle_action` restent envoyés depuis le client (actions directes d'un joueur). `item_spawned` est envoyé exclusivement par le cron serveur `battle-spawn-advance`, uniquement quand `advance_battle_spawn()` retourne `true` (nouvel item réellement apparu à cet appel, évite les doublons) — titre "Item apparu", description "{Item} vient d'apparaître ! Récupère-le avant l'autre."
 - **Modèles 3D** : `prisca.glb` = Clément, `cookie.glb` = Léona. Attribution par tri de `user_id` : le plus petit alphabétiquement = Prisca. Chaque joueur voit son propre chat à gauche. Noms affichés : "Prisca (Clément)" et "Cookie (Léona)". 2 canvas WebGL indépendants avec `OrbitControls` (zoom + rotation, pas de pan).
 
 ### `battle_state`
@@ -395,10 +413,11 @@ RPC `advance_photo_game()` : atomique (FOR UPDATE), avance si `done` ou `active 
 - **`check-pet-push`** : `--no-verify-jwt`. pg_cron `*/15 * * * *`. Push si bien-être < 50, cooldown 3h.
 - **`daily-reminder`** : `--no-verify-jwt`. pg_cron `0 7,13 * * *` (2×/jour). Rappels défis.
 - **`check-streak-push`** : `--no-verify-jwt`. pg_cron `0 18,21 * * *` (20h+23h Paris). Push si `last_login_date < today`.
-- **`notify-battle`** : `--no-verify-jwt`. Appelée depuis le client (`BattleGame.tsx`). Types : `item_spawned`, `item_claimed`, `battle_action`.
+- **`notify-battle`** : `--no-verify-jwt`. Appelée depuis le client (`BattleGame.tsx`) pour `item_claimed`/`battle_action`, et depuis le cron `battle-spawn-advance` pour `item_spawned`. Types : `item_spawned`, `item_claimed`, `battle_action`.
 - **`notify-photo-game`** : `--no-verify-jwt`. Appelée depuis le client pour tous les types sauf `new_theme`, qui ne vient plus que du cron serveur. Types : `photo_uploaded` (exclut l'uploader, destinataire inconnu à l'avance), `partner_uploaded` (cible explicitement le premier uploader), `vote_cast` (cible le partenaire dont la photo vient d'être votée, prénom sans accents dans le titre), `game_done` (cible le partenaire quand les 2 votes sont là), `new_theme` (broadcast aux deux, envoyé uniquement par le cron `photo-game-advance-new-theme` — le client n'appelle plus jamais `advance_photo_game()`, pour garantir qu'ouvrir l'app ne déclenche jamais cette notif).
 - **`check-photo-game-push`** : `--no-verify-jwt`. pg_cron `0 7 * * *` (le matin). Rappels pour ceux qui n'ont pas encore uploadé (`active`) ou pas encore voté (`voting`), basés sur le jour de la semaine (Paris) : lundi → "Plus qu'un jour...", mardi (dernier jour) → "VITE...", mercredi → aucun rappel (jour mort, verrouillé). Cible précisément les users manquants (roster via `auth.admin.listUsers()` pour l'upload, `vote_1`/`vote_2` null pour le vote) — n'avance pas la partie, ne fait que rappeler.
 - **`photo-game-advance-new-theme`** (pg_cron, `*/15 * * * *`, pas une edge function) : seul déclencheur de l'avance de partie. Appelle `advance_photo_game()` puis POST directement vers `notify-photo-game` (`type: new_theme`) via `net.http_post` si la partie a réellement avancé. Le client (`PhotoGame.tsx`) ne fait plus cet appel lui-même (retiré volontairement) : il se contente de lire l'état via `select` + Realtime.
+- **`battle-spawn-advance`** (pg_cron, `*/15 * * * *`, pas une edge function) : seul déclencheur de l'apparition des items de Combat. Appelle `advance_battle_spawn()` puis POST directement vers `notify-battle` (`type: item_spawned`, `item_type`) via `net.http_post` si un nouvel item est réellement apparu. Le client (`BattleGame.tsx`) ne fait plus cet appel lui-même (retiré volontairement, même logique que Photo Duel) : il se contente de lire l'état via `select` + Realtime (`loadSpawn()`).
 - **`notify-meeting-date`** : appelée depuis le client (`NextMeetingCard.tsx`) après un `save()` réussi avec une `next_meeting_date` définie. Broadcast aux deux users (y compris l'auteur de la modification). Titre "Date mise à jour !", corps "Plus que X jours avant de se revoir..." (calculé côté client avec `daysRemaining()`, cas particuliers pour 0 et négatif).
 - **iOS** : Web Push nécessite d'ajouter l'app à l'écran d'accueil depuis Safari.
 - **Convention fonctions appelées depuis le client** (`notify-battle`, `notify-photo-game`, `notify-meeting-date` — fetch direct avec header `Authorization` custom, pas `supabase.functions.invoke`) : toujours déployer avec `--no-verify-jwt`. Sans ce flag, la gateway Supabase exige un JWT valide même sur le preflight CORS (`OPTIONS`, qui n'a jamais de header `Authorization`) et le rejette avant que la fonction ne s'exécute — le `fetch` échoue silencieusement côté client (catché en `non-bloquant`), sans notif ni erreur visible. Chaque fonction gère aussi explicitement `OPTIONS` (early return avec headers `Access-Control-Allow-*`) et n'a **jamais** de valeur par défaut correspondant à un vrai type de notif (le fallback doit tomber dans la branche "Type inconnu" / un guard de méthode, sinon un `OPTIONS` ou un body vide déclenche un vrai push).
@@ -427,6 +446,8 @@ RPC `advance_photo_game()` : atomique (FOR UPDATE), avance si `done` ou `active 
 18. `20260806_user_wallet.sql` — table `user_wallet` (bourse individuelle par user) + RLS + RPC `award_coins` (upsert atomique) + realtime ; remplace le pot commun `couple_settings.coins` (colonnes conservées mais plus utilisées)
 19. `20260806_user_wallet_remove_rate.sql` — retire `last_coin_update_at`/`coin_rate` de `user_wallet` : plus de règlement ambiant, uniquement des récompenses ponctuelles
 20. `20260806_remove_room_game.sql` — retrait du jeu "Ma Chambre" : drop des tables `rooms`/`room_purchases`, de la RPC `purchase_room_upgrade`, du trigger de notif associé et du cron `room-upgrade-reminder` (bucket Storage `room-photos` à supprimer manuellement dans le dashboard)
+21. `20260808_battle_spawn_cron.sql` — cron `battle-spawn-advance` (`*/15 * * * *`, remplacer `<SERVICE_ROLE_KEY>`) qui appelle `advance_battle_spawn()` et envoie le push `item_spawned` côté serveur si un nouvel item est réellement apparu — l'apparition des items de Combat ne dépend plus d'un client ouvert au bon moment (même remède que `20260805_photo_game_new_theme_cron.sql` pour Photo Duel)
+22. `20260808_photo_game_history.sql` — table `photo_game_history` (archive en lecture seule des tours Photo Duel passés) + RLS + `advance_photo_game()` modifiée pour archiver le tour courant avant réinitialisation — alimente le bouton historique de `PhotoGame.tsx`
 
 ## Conventions
 

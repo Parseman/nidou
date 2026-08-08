@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useId } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Upload, ThumbsUp, ThumbsDown, Camera, RefreshCw, Clock } from 'lucide-react'
+import { X, Upload, ThumbsUp, ThumbsDown, Camera, RefreshCw, Clock, Menu } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../../lib/supabase'
 import { THEMES } from '../../lib/photoGameThemes'
@@ -23,6 +23,19 @@ type GameRow = {
   updated_at: string
 }
 
+type HistoryRow = {
+  id: number
+  theme_index: number
+  started_at: string
+  ended_at: string
+  photo_1_url: string | null
+  photo_1_user_id: string | null
+  photo_2_url: string | null
+  photo_2_user_id: string | null
+  vote_1: boolean | null
+  vote_2: boolean | null
+}
+
 function fmtTimeLeft(ms: number): string {
   if (ms <= 0) return 'Expiré'
   const h = Math.floor(ms / 3_600_000)
@@ -39,6 +52,9 @@ export function PhotoGame({ user }: { user: User }) {
   const [voting, setVoting] = useState(false)
   const [timeLeft, setTimeLeft] = useState('')
   const [locked, setLocked] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [history, setHistory] = useState<HistoryRow[] | null>(null)
+  const [loadingHistory, setLoadingHistory] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const instanceId = useId()
 
@@ -180,6 +196,18 @@ export function PhotoGame({ user }: { user: User }) {
     } catch { /* non-bloquant */ }
   }
 
+  async function openHistory() {
+    setHistoryOpen(true)
+    if (history !== null) return
+    setLoadingHistory(true)
+    const { data } = await supabase
+      .from('photo_game_history')
+      .select('*')
+      .order('ended_at', { ascending: false })
+    setHistory((data as HistoryRow[]) || [])
+    setLoadingHistory(false)
+  }
+
   const theme = THEMES[(game?.theme_index ?? 0) % THEMES.length]
 
   function statusLabel(): string {
@@ -259,6 +287,13 @@ export function PhotoGame({ user }: { user: User }) {
                         <Clock size={10} /> {timeLeft}
                       </span>
                     )}
+                    <button
+                      onClick={openHistory}
+                      aria-label="Historique des thèmes"
+                      className="flex items-center gap-1 text-xs text-pink-400 dark:text-pink-300 bg-pink-50 dark:bg-pink-900/30 hover:bg-pink-100 dark:hover:bg-pink-900/50 px-2 py-0.5 rounded-full transition-colors"
+                    >
+                      <Menu size={10} />
+                    </button>
                   </div>
                   <p className="text-pink-600 dark:text-pink-300 text-sm leading-snug">{theme}</p>
                 </div>
@@ -399,6 +434,112 @@ export function PhotoGame({ user }: { user: User }) {
                   }
                   {uploading ? 'Upload en cours…' : 'Uploader ma photo'}
                 </button>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal historique */}
+      <AnimatePresence>
+        {historyOpen && (
+          <motion.div
+            className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setHistoryOpen(false)} />
+            <motion.div
+              className="relative w-full max-w-lg glass-card rounded-3xl p-6 max-h-[90vh] overflow-y-auto"
+              initial={{ y: 60, opacity: 0, scale: 0.97 }}
+              animate={{ y: 0, opacity: 1, scale: 1 }}
+              exit={{ y: 60, opacity: 0, scale: 0.97 }}
+              transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+            >
+              <div className="flex items-start justify-between mb-5">
+                <h2 className="flex items-center gap-2 font-bold text-pink-700 dark:text-pink-200 text-base"
+                  style={{ fontFamily: '"Varela Round", sans-serif' }}>
+                  <Menu size={18} /> Historique
+                </h2>
+                <button onClick={() => setHistoryOpen(false)}
+                  className="text-pink-300 hover:text-pink-500 dark:hover:text-pink-200 transition-colors">
+                  <X size={20} />
+                </button>
+              </div>
+
+              {loadingHistory && (
+                <div className="flex justify-center py-8">
+                  <div className="w-6 h-6 border-2 border-pink-400 border-t-transparent rounded-full animate-spin" />
+                </div>
+              )}
+
+              {!loadingHistory && history?.length === 0 && (
+                <p className="text-center text-sm text-pink-400 dark:text-pink-300 py-8">
+                  Aucun tour terminé pour l'instant.
+                </p>
+              )}
+
+              {!loadingHistory && history && history.length > 0 && (
+                <div className="flex flex-col gap-5">
+                  {history.map((h) => {
+                    const hMySlot = h.photo_1_user_id === user.id ? 1
+                      : h.photo_2_user_id === user.id ? 2
+                      : null
+                    const hMyPhoto = hMySlot === 1 ? h.photo_1_url : hMySlot === 2 ? h.photo_2_url : h.photo_1_url
+                    const hPartnerPhoto = hMySlot === 1 ? h.photo_2_url : hMySlot === 2 ? h.photo_1_url : h.photo_2_url
+                    const hMyVote = hMySlot === 1 ? h.vote_2 : hMySlot === 2 ? h.vote_1 : null
+                    const hPartnerVoteOnMine = hMySlot === 1 ? h.vote_1 : hMySlot === 2 ? h.vote_2 : null
+                    return (
+                      <div key={h.id} className="pb-5 border-b border-pink-100 dark:border-pink-900/40 last:border-0 last:pb-0">
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-sm font-medium text-pink-600 dark:text-pink-300 leading-snug pr-3">
+                            {THEMES[h.theme_index % THEMES.length]}
+                          </p>
+                          <span className="shrink-0 text-xs text-pink-400 dark:text-pink-500">
+                            {new Date(h.started_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="flex flex-col gap-1">
+                            <div className="aspect-square rounded-xl overflow-hidden bg-pink-50 dark:bg-pink-950/40 relative">
+                              {hMyPhoto ? (
+                                <img src={hMyPhoto} alt="Toi" className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-pink-300 dark:text-pink-600">
+                                  <Camera size={18} />
+                                </div>
+                              )}
+                              {hPartnerVoteOnMine !== null && hPartnerVoteOnMine !== undefined && (
+                                <div className="absolute bottom-1 right-1 bg-white/90 dark:bg-black/70 rounded-full p-0.5 text-sm leading-none">
+                                  {hPartnerVoteOnMine ? '👍' : '👎'}
+                                </div>
+                              )}
+                            </div>
+                            <p className="text-[10px] text-center text-pink-400 dark:text-pink-500 uppercase tracking-wide">Toi</p>
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <div className="aspect-square rounded-xl overflow-hidden bg-violet-50 dark:bg-violet-950/40 relative">
+                              {hPartnerPhoto ? (
+                                <img src={hPartnerPhoto} alt="Partenaire" className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-violet-300 dark:text-violet-600">
+                                  <Camera size={18} />
+                                </div>
+                              )}
+                              {hMyVote !== null && hMyVote !== undefined && (
+                                <div className="absolute bottom-1 right-1 bg-white/90 dark:bg-black/70 rounded-full p-0.5 text-sm leading-none">
+                                  {hMyVote ? '👍' : '👎'}
+                                </div>
+                              )}
+                            </div>
+                            <p className="text-[10px] text-center text-violet-400 dark:text-violet-500 uppercase tracking-wide">Partenaire</p>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
               )}
             </motion.div>
           </motion.div>
