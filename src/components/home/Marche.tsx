@@ -154,19 +154,22 @@ export function Marche({ user }: { user: User }) {
         style={{ aspectRatio: '1 / 1' }}
         aria-label="Marché"
       >
-        <div className="absolute inset-0 bg-gradient-to-br from-amber-300 via-orange-300 to-pink-300 dark:from-amber-700 dark:via-orange-700 dark:to-pink-800 group-hover:scale-105 transition-transform duration-500" />
-        <div className="absolute inset-0 flex items-center justify-center text-4xl">🛍️</div>
-        {needsAction && (
-          <div className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1 flex items-center justify-center bg-red-500 rounded-full text-white text-[11px] font-bold leading-none shadow-md animate-pulse">
-            {pendingForMe.length > 9 ? '9+' : pendingForMe.length}
-          </div>
-        )}
+        <img
+          src="/marche-cover.png"
+          alt="Marché"
+          className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+        />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
         <div className="absolute bottom-0 left-0 right-0 px-3 py-3">
           <p className="text-white font-bold text-xs" style={{ fontFamily: '"Varela Round", sans-serif' }}>
             Marché
           </p>
         </div>
+        {needsAction && (
+          <div className="absolute top-1.5 right-1.5 z-20 min-w-[20px] h-5 px-1 flex items-center justify-center bg-red-500 rounded-full text-white text-[11px] font-bold leading-none shadow-md animate-pulse">
+            {pendingForMe.length > 9 ? '9+' : pendingForMe.length}
+          </div>
+        )}
       </motion.button>
 
       {/* ── Modale ── */}

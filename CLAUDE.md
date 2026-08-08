@@ -75,6 +75,7 @@ public/
   nidou-cover.png           # Illustration du chat dans le nid (card home)
   photo-duel-cover.png      # Image de fond de la card Photo Duel (page d'accueil)
   battle-cover.png          # Image de fond de la card Combat (page d'accueil)
+  marche-cover.png          # Image de fond de la card Marché (PhoneModal)
   nidou-logo.png            # Logo doré "N" — favicon uniquement (pas dans l'app)
   sw.js                     # Service Worker pour les notifications push
 supabase/
@@ -437,7 +438,7 @@ Realtime : `postgres_changes` (`*`).
 - Countdown + verrouillage (`locked`) calculés via `getRoundBoundaries()` (`src/lib/photoGameSchedule.ts`), recalculés à chaque tick (60s) : avant la deadline mardi 23h59 → countdown vers la deadline ; après (mercredi, verrouillé) ou en `done` → countdown vers le jeudi 00h00 suivant, moment où `advance_photo_game()` est appelé côté client.
 
 ### Marche.tsx
-- Self-contained comme `PhotoGame`/`BattleGame`, mais icône sans asset image : gradient (amber/orange/pink) + emoji `🛍️` centré, plus léger que les autres cards (pas de `public/*.png` dédié).
+- Self-contained comme `PhotoGame`/`BattleGame` : card cliquable avec `public/marche-cover.png` en image de fond.
 - Bulle rouge avec le nombre de demandes en attente (`pendingForMe.length`, plafonné à "9+") sur l'icône et à côté du titre de la section « Demandes reçues » dans la modale, dès qu'au moins une demande achetée par le partenaire attend d'être réalisée.
 - Modale en 4 sections empilées : demandes reçues (à réaliser, avec bouton « Marquer comme fait » + upload photo optionnel), mes achats en attente (lecture seule, en attente que le partenaire les réalise), catalogue complet groupé par palier (`TIER_LABEL`), historique des demandes honorées.
 - Solde affiché dans le header de la modale (`user_wallet.coins` de l'utilisateur courant, lu au montage + Realtime) — les boutons « Acheter » du catalogue se désactivent si le solde est insuffisant.
