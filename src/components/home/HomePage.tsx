@@ -10,6 +10,7 @@ import { PhoneModal } from './PhoneModal'
 import { CoinPot } from './CoinPot'
 import { useStreak } from '../../lib/useStreak'
 import { DistanceCard } from './DistanceCard'
+import { TripProgress } from './TripProgress'
 
 
 type Props = {
@@ -35,7 +36,7 @@ export function HomePage({ user, onSignOut }: Props) {
       {/* Sticky navbar */}
       <nav className="sticky top-0 z-50 px-4 pt-4 pb-2">
         <div className="max-w-5xl mx-auto glass-card rounded-2xl px-5 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <span className="text-xl" role="img" aria-label="nid d'oiseau">🪺</span>
             <span
               className="font-bold text-pink-700 dark:text-pink-200 text-lg"
@@ -53,7 +54,9 @@ export function HomePage({ user, onSignOut }: Props) {
             )}
           </div>
 
-          <div className="flex items-center gap-3">
+          <TripProgress user={user} />
+
+          <div className="flex items-center gap-3 shrink-0">
             <span className="text-pink-400 dark:text-pink-300 text-xs hidden sm:block truncate max-w-[180px]">
               {user.user_metadata?.first_name ?? user.email}
             </span>

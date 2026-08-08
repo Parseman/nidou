@@ -57,6 +57,7 @@ src/
     home/
       HomePage.tsx           # Layout principal (navbar + streak 🔥, hero, grille 4 cartes, bouton téléphone — toutes tailles d'écran)
       NextMeetingCard.tsx    # Compte à rebours + barre de progression
+      TripProgress.tsx       # Barre de progression inline dans la navbar (entre le streak et le nom), toujours visible, % de progression affiché à droite ; trajet propre à chaque user, lecture seule
       DefiLundi.tsx          # Défi du début de semaine (lun-mer, deadline mercredi suivant 23h59)
       CroustiMessage.tsx     # Messagerie temps réel (bulle flottante bas-droite)
       NidouChat.tsx          # Card cliquable (image nidou-cover.png) → modale Tamagotchi (actions, 3D, stats), self-contained comme PhotoGame/BattleGame
@@ -247,6 +248,18 @@ RLS : SELECT pour tous les authentifiés, écriture uniquement via `advance_phot
 Alimentée automatiquement par `advance_photo_game()` : chaque tour (même incomplet, sans photo) est archivé avant réinitialisation, pour un historique complet.
 Consultée dans `PhotoGame.tsx` via le bouton historique (icône ☰) à côté du compte à rebours — modale listant thème, date, les 2 photos et les votes de chaque tour passé, la plus récente en premier.
 
+### `user_trips`
+| Colonne         | Type        | Notes                                              |
+|-----------------|-------------|-----------------------------------------------------|
+| user_id         | text PK     | user.id Supabase                                    |
+| user_name       | text        | cache de first_name au moment de la sauvegarde       |
+| departure_date  | text        | Format YYYY-MM-DD, date de départ propre à ce user   |
+| arrival_date    | text        | Format YYYY-MM-DD, date d'arrivée propre à ce user   |
+| updated_at      | timestamptz |                                                      |
+
+RLS : SELECT pour tous les authentifiés (affichage de la progression du partenaire dans `TripProgress.tsx`), INSERT/UPDATE pour sa propre ligne (`user_id = auth.uid()::text`).
+Realtime : `postgres_changes` (`*`) — chaque partenaire voit l'avancée de l'autre en temps réel.
+
 ### `market_purchases`
 | Colonne      | Type        | Notes                                                        |
 |--------------|-------------|--------------------------------------------------------------|
@@ -374,6 +387,18 @@ Realtime : `postgres_changes` (`*`).
 - Pas de récompense pour le vote Photo Duel, le soin (cœur) ou l'activation de bouclier en Combat — seule l'attaque à l'épée en rapporte.
 - Le Marché (voir « Règles métier — Marché ») est le seul **débit** volontaire de la bourse — tout le reste ne fait que créditer.
 
+## Règles métier — Trajet ✈️ (barre de progression navbar)
+
+- Barre affichée **dans la navbar**, entre le streak 🔥 et le nom/les boutons (`TripProgress.tsx`, `HomePage.tsx`), en plus de la barre existante de `NextMeetingCard` sur la page d'accueil — les deux coexistent, l'une ne remplace pas l'autre.
+- Toujours visible dans la navbar (la ligne s'affiche même sans aucune donnée), même si aucun trajet n'est encore configuré — seuls les avatars et le % apparaissent/disparaissent selon les données disponibles, la structure de la barre ne dépend jamais du contenu de `user_trips`.
+- Le % de progression du user courant (`myPct`, arrondi) est affiché en texte à droite de la ligne — pas celui du partenaire, qui reste uniquement visible via son avatar + tooltip sur la ligne.
+- Chaque user configure **son propre** départ et son propre retour (`user_trips`, une ligne par user) — les deux dates sont indépendantes d'un user à l'autre (ex : l'un part avant l'autre, ou pour une durée de trajet différente), donc le pourcentage d'avancement (`(aujourd'hui - départ) / (retour - départ)`, borné 0-100) est propre à chacun même si affiché sur la même ligne.
+- Représentation : un avatar rond avec l'initiale du prénom de chaque user (soi = dégradé rose, partenaire = dégradé violet), positionné sur la ligne selon son propre pourcentage. Si un user n'a pas encore configuré son trajet, son avatar n'apparaît simplement pas.
+- `TripProgress.tsx` est **lecture seule** (fetch + Realtime `postgres_changes` sur `user_trips`, comme `CoinPot`) — aucune édition depuis la navbar.
+- Édition : section "Ton trajet" dans `SettingsModal.tsx` (champs "Départ"/"Retour" + bouton Enregistrer), modifie uniquement le trajet du user courant (upsert `user_trips`, jamais celui du partenaire, cohérent avec la RLS own-row en écriture). La navbar se met à jour automatiquement via Realtime après l'enregistrement.
+- Aucune notification, aucune récompense de pièces liée à ce trajet — purement visuel/informatif.
+- ⚠️ Nécessite que la migration `20260808_user_trips.sql` ait été exécutée manuellement dans le dashboard Supabase (voir « Migrations SQL ») — sans elle, la barre reste vide (aucune erreur visible côté client, fetch/upsert échouent silencieusement en console).
+
 ## Règles métier — Marché 🛍️
 
 - Catalogue de 34 demandes à prix fixe, codé en dur dans `MARKET_ITEMS` (`src/lib/marketItems.ts`), classé en 3 paliers de rareté (`MarketTier`) :
@@ -392,7 +417,7 @@ Realtime : `postgres_changes` (`*`).
 - Au login, si `Notification.permission === 'granted'`, appelle `registerPush` silencieusement.
 
 ### HomePage
-- Navbar : logo 🪺 + "Nidou" + streak 🔥N + Paramètres + Déconnexion.
+- Navbar : logo 🪺 + "Nidou" + streak 🔥N, puis `TripProgress` (barre de trajet, prend l'espace restant), puis nom + Paramètres + Déconnexion — tout sur une seule ligne.
 - Grille principale : `NextMeetingCard`, `DefiLundi`, `CoinPot`, `DistanceCard` — 1 colonne mobile, 2 (`md`), 4 sur la même ligne en PC (`lg:grid-cols-4`, conteneur `lg:max-w-5xl`).
 - Hero, cartes principales et footer sont en tailles compactes sur mobile (padding, marges, tailles de police réduites sans préfixe Tailwind) et retrouvent leur taille normale à partir de `md:` — objectif : limiter le scroll vertical sur mobile où les 4 cartes s'empilent en 1 colonne. Toute nouvelle carte ajoutée à cette grille doit suivre le même pattern (`p-4 md:p-6`, `mb-2 md:mb-4`, texte agrandi via `md:text-*` plutôt que par défaut).
 - Accès à `PhoneModal` — seul point d'entrée vers les jeux (Nidou, CroustiArt, Photo Duel, Combat), qu'on soit sur mobile, tablette ou PC :
@@ -418,6 +443,7 @@ Realtime : `postgres_changes` (`*`).
 
 ### SettingsModal
 - Section "Apparence" : toggle dark mode via `useTheme()`.
+- Section "Ton trajet" : 2 champs date ("Départ"/"Retour") + bouton Enregistrer, upsert dans `user_trips` (own row) — seul point d'édition du trajet, affiché en lecture seule dans la navbar par `TripProgress.tsx`.
 - Section "Notifications" : toggle push via `registerPush` / `unregisterPush`.
 - Section "Idées & bugs" : seul point d'entrée pour signaler une idée ou un bug **et** pour consulter/supprimer la liste (pas de composant séparé). Bouton `+` révèle un formulaire inline (2 boutons Idée 💡/Bug 🐛 + `textarea` description) → insert dans `feedback_reports`. Liste en dessous (scrollable, `max-h-52`), la plus récente en premier, chaque entrée avec un bouton `Trash2` qui supprime immédiatement (pas de confirmation, cohérent avec le reste de l'app). Modale globale rendue scrollable (`max-h-[85vh] overflow-y-auto`) pour accueillir cette liste.
 
@@ -504,6 +530,7 @@ Realtime : `postgres_changes` (`*`).
 22. `20260808_photo_game_history.sql` — table `photo_game_history` (archive en lecture seule des tours Photo Duel passés) + RLS + `advance_photo_game()` modifiée pour archiver le tour courant avant réinitialisation — alimente le bouton historique de `PhotoGame.tsx`
 23. `20260808_feedback_reports.sql` — table `feedback_reports` (idées/bugs signalés par les users) + RLS (lecture/suppression ouvertes aux deux, insert own) — alimente la section "Idées & bugs" de `SettingsModal.tsx`
 24. `20260808_market.sql` — table `market_purchases` (achats de demandes via la bourse individuelle) + RLS (lecture ouverte, insert own, update ouvert) + realtime ; bucket Storage `market` à créer manuellement dans le dashboard (public, comme `challenges`/`photo-game`)
+25. `20260808_user_trips.sql` — table `user_trips` (trajet départ/arrivée propre à chaque user) + RLS (lecture ouverte, insert/update own) + realtime — alimente la barre de progression `TripProgress.tsx` dans la navbar
 
 ## Conventions
 

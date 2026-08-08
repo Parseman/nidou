@@ -38,12 +38,52 @@ export function SettingsModal({ open, onClose, user }: Props) {
   const [feedbackText, setFeedbackText] = useState('')
   const [feedbackSubmitting, setFeedbackSubmitting] = useState(false)
 
+  const [tripDeparture, setTripDeparture] = useState('')
+  const [tripArrival, setTripArrival] = useState('')
+  const [tripSaving, setTripSaving] = useState(false)
+  const [tripSaved, setTripSaved] = useState(false)
+  const [tripError, setTripError] = useState<string | null>(null)
+
   useEffect(() => {
     if (!open) return
     if ('Notification' in window) setPermission(Notification.permission)
     getPushEnabled().then(setEnabled)
     fetchFeedback()
+    fetchTrip()
   }, [open])
+
+  async function fetchTrip() {
+    const { data } = await supabase
+      .from('user_trips')
+      .select('departure_date, arrival_date')
+      .eq('user_id', user.id)
+      .maybeSingle()
+    setTripDeparture(data?.departure_date ?? '')
+    setTripArrival(data?.arrival_date ?? '')
+    setTripSaved(false)
+    setTripError(null)
+  }
+
+  async function saveTrip() {
+    if (!tripDeparture || !tripArrival || tripSaving) return
+    setTripSaving(true)
+    setTripError(null)
+    const { error } = await supabase.from('user_trips').upsert({
+      user_id: user.id,
+      user_name: user.user_metadata?.first_name ?? null,
+      departure_date: tripDeparture,
+      arrival_date: tripArrival,
+      updated_at: new Date().toISOString(),
+    })
+    if (error) {
+      console.error('user_trips upsert:', error)
+      setTripError('Erreur lors de la sauvegarde. Réessaie.')
+      setTripSaving(false)
+      return
+    }
+    setTripSaving(false)
+    setTripSaved(true)
+  }
 
   async function fetchFeedback() {
     const { data } = await supabase
@@ -106,7 +146,7 @@ export function SettingsModal({ open, onClose, user }: Props) {
           />
 
           <motion.div
-            className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-50 max-w-sm mx-auto"
+            className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-50 max-w-lg mx-auto"
             initial={{ opacity: 0, scale: 0.95, y: '-45%' }}
             animate={{ opacity: 1, scale: 1, y: '-50%' }}
             exit={{ opacity: 0, scale: 0.95, y: '-45%' }}
@@ -157,6 +197,48 @@ export function SettingsModal({ open, onClose, user }: Props) {
                     <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200
                       ${dark ? 'translate-x-5' : 'translate-x-0'}`}
                     />
+                  </button>
+                </div>
+              </div>
+
+              {/* Section trajet */}
+              <div className="mb-4">
+                <p className="text-xs font-semibold text-pink-400 dark:text-pink-300 uppercase tracking-wider mb-3">
+                  Ton trajet
+                </p>
+                <div className="bg-white/40 dark:bg-purple-950/40 rounded-xl p-4 space-y-3">
+                  <div className="flex gap-3">
+                    <div className="flex-1">
+                      <label className="block text-xs font-semibold text-pink-600 dark:text-pink-300 mb-1">
+                        Départ
+                      </label>
+                      <input
+                        type="date"
+                        value={tripDeparture}
+                        onChange={(e) => { setTripDeparture(e.target.value); setTripSaved(false) }}
+                        className="input-field text-sm"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label className="block text-xs font-semibold text-pink-600 dark:text-pink-300 mb-1">
+                        Retour
+                      </label>
+                      <input
+                        type="date"
+                        value={tripArrival}
+                        min={tripDeparture || undefined}
+                        onChange={(e) => { setTripArrival(e.target.value); setTripSaved(false) }}
+                        className="input-field text-sm"
+                      />
+                    </div>
+                  </div>
+                  {tripError && <p className="text-xs text-red-500">{tripError}</p>}
+                  <button
+                    onClick={saveTrip}
+                    disabled={tripSaving || !tripDeparture || !tripArrival}
+                    className="btn-primary text-sm px-4 py-1.5 w-full"
+                  >
+                    {tripSaving ? 'Sauvegarde…' : tripSaved ? 'Enregistré ✓' : 'Enregistrer'}
                   </button>
                 </div>
               </div>
