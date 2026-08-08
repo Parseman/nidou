@@ -183,6 +183,18 @@ Realtime : UPDATE subscription (dans NidouChat.tsx).
 
 RLS : chaque user lit/écrit uniquement sa propre ligne.
 
+### `feedback_reports`
+| Colonne     | Type        | Notes                                   |
+|-------------|-------------|------------------------------------------|
+| id          | text PK     | `gen_random_uuid()::text`                |
+| user_id     | text        | user.id de l'auteur                      |
+| author_name | text        | cache de first_name au moment de l'envoi |
+| type        | text        | `bug` / `idea`                           |
+| description | text        |                                          |
+| created_at  | timestamptz |                                          |
+
+RLS : SELECT pour tous les authentifiés, INSERT pour sa propre ligne (`user_id = auth.uid()`), DELETE ouvert à tous les authentifiés (les deux users gèrent ensemble la liste, comme `battle_state`/`user_wallet`). Pas de Realtime — lu au montage de `SettingsModal` (`fetchFeedback`), rafraîchi après chaque insert/delete.
+
 ### `user_locations`
 | Colonne    | Type        | Notes                                  |
 |------------|-------------|----------------------------------------|
@@ -373,6 +385,7 @@ Consultée dans `PhotoGame.tsx` via le bouton historique (icône ☰) à côté 
 ### SettingsModal
 - Section "Apparence" : toggle dark mode via `useTheme()`.
 - Section "Notifications" : toggle push via `registerPush` / `unregisterPush`.
+- Section "Idées & bugs" : seul point d'entrée pour signaler une idée ou un bug **et** pour consulter/supprimer la liste (pas de composant séparé). Bouton `+` révèle un formulaire inline (2 boutons Idée 💡/Bug 🐛 + `textarea` description) → insert dans `feedback_reports`. Liste en dessous (scrollable, `max-h-52`), la plus récente en premier, chaque entrée avec un bouton `Trash2` qui supprime immédiatement (pas de confirmation, cohérent avec le reste de l'app). Modale globale rendue scrollable (`max-h-[85vh] overflow-y-auto`) pour accueillir cette liste.
 
 ### DistanceCard
 - Géolocalisation au montage → upsert `user_locations` → lecture toutes les lignes → calcul Haversine.
@@ -448,6 +461,7 @@ Consultée dans `PhotoGame.tsx` via le bouton historique (icône ☰) à côté 
 20. `20260806_remove_room_game.sql` — retrait du jeu "Ma Chambre" : drop des tables `rooms`/`room_purchases`, de la RPC `purchase_room_upgrade`, du trigger de notif associé et du cron `room-upgrade-reminder` (bucket Storage `room-photos` à supprimer manuellement dans le dashboard)
 21. `20260808_battle_spawn_cron.sql` — cron `battle-spawn-advance` (`*/15 * * * *`, remplacer `<SERVICE_ROLE_KEY>`) qui appelle `advance_battle_spawn()` et envoie le push `item_spawned` côté serveur si un nouvel item est réellement apparu — l'apparition des items de Combat ne dépend plus d'un client ouvert au bon moment (même remède que `20260805_photo_game_new_theme_cron.sql` pour Photo Duel)
 22. `20260808_photo_game_history.sql` — table `photo_game_history` (archive en lecture seule des tours Photo Duel passés) + RLS + `advance_photo_game()` modifiée pour archiver le tour courant avant réinitialisation — alimente le bouton historique de `PhotoGame.tsx`
+23. `20260808_feedback_reports.sql` — table `feedback_reports` (idées/bugs signalés par les users) + RLS (lecture/suppression ouvertes aux deux, insert own) — alimente la section "Idées & bugs" de `SettingsModal.tsx`
 
 ## Conventions
 
