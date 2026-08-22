@@ -209,7 +209,7 @@ export function SettingsModal({ open, onClose, user }: Props) {
                 </p>
                 <div className="bg-white/40 dark:bg-purple-950/40 rounded-xl p-4 space-y-3">
                   <div className="flex gap-3">
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0">
                       <label className="block text-xs font-semibold text-pink-600 dark:text-pink-300 mb-1">
                         Départ
                       </label>
@@ -220,7 +220,7 @@ export function SettingsModal({ open, onClose, user }: Props) {
                         className="input-field text-sm"
                       />
                     </div>
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0">
                       <label className="block text-xs font-semibold text-pink-600 dark:text-pink-300 mb-1">
                         Retour
                       </label>

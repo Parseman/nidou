@@ -45,6 +45,18 @@
   }
 }
 
+/* Les <input type="date"> natifs ont une largeur de contenu minimale (chiffres
+   jj/mm/aaaa + icône calendrier) qui peut dépasser leur boîte CSS sur certains
+   navigateurs mobiles (Chrome Android, Safari iOS), surtout dans un conteneur
+   flex où les enfants ne rétrécissent pas sous leur min-content par défaut. */
+input[type='date'] {
+  min-width: 0;
+  max-width: 100%;
+}
+input[type='date']::-webkit-calendar-picker-indicator {
+  margin-left: auto;
+}
+
 /* Dark mode overrides */
 html.dark body {
   background-color: #0e0a1f;
