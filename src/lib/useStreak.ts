@@ -1,18 +1,14 @@
 import { useState, useEffect } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from './supabase'
-
-function localDateStr(): string {
-  // YYYY-MM-DD en heure locale (pas UTC)
-  return new Date().toLocaleDateString('sv-SE')
-}
+import { todayISODate } from './dates'
 
 export function useStreak(user: User): number | null {
   const [streak, setStreak] = useState<number | null>(null)
 
   useEffect(() => {
     async function update() {
-      const today = localDateStr()
+      const today = todayISODate()
 
       const { data } = await supabase
         .from('user_streaks')

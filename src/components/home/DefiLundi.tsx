@@ -5,6 +5,7 @@ import type { User } from '@supabase/supabase-js'
 import { supabase } from '../../lib/supabase'
 import { awardCoins } from '../../lib/wallet'
 import { getFileExtension, uploadAndGetPublicUrl } from '../../lib/storage'
+import { fmtDateLong } from '../../lib/dates'
 
 type Difficulty = 'easy' | 'medium' | 'hard' | 'legendary'
 
@@ -56,10 +57,6 @@ function getNextWednesday(): Date {
   return d
 }
 
-function fmtDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
-}
-
 function ChallengeCard({ c }: { c: Challenge }) {
   const diff = getDiff(c.difficulty)
   return (
@@ -77,7 +74,7 @@ function ChallengeCard({ c }: { c: Challenge }) {
       )}
       <div className="flex flex-wrap gap-x-3 text-xs text-pink-300">
         <span>Lancé par {c.creator_name ?? 'inconnu'}</span>
-        {c.deadline && <span>· Jusqu'au {fmtDate(c.deadline)}</span>}
+        {c.deadline && <span>· Jusqu'au {fmtDateLong(c.deadline)}</span>}
       </div>
     </div>
   )
@@ -411,7 +408,7 @@ export function DefiLundi({ user }: { user: User }) {
                           </div>
                           {myChallengeOut.deadline && (
                             <p className="text-pink-300 text-xs text-center">
-                              Valide avant le {fmtDate(myChallengeOut.deadline)}, sinon validé automatiquement
+                              Valide avant le {fmtDateLong(myChallengeOut.deadline)}, sinon validé automatiquement
                             </p>
                           )}
                         </div>
@@ -508,7 +505,7 @@ export function DefiLundi({ user }: { user: User }) {
                               <p className="text-pink-400 text-xs">
                                 {isValidated ? '✅ Validé' : '❌ Refusé'} · {c.completer_name ?? 'inconnu'}
                               </p>
-                              {c.completed_at && <p className="text-pink-300 text-xs">{fmtDate(c.completed_at)}</p>}
+                              {c.completed_at && <p className="text-pink-300 text-xs">{fmtDateLong(c.completed_at)}</p>}
                             </div>
                           </motion.div>
                         )

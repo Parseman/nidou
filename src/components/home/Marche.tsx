@@ -7,6 +7,7 @@ import { awardCoins } from '../../lib/wallet'
 import { MARKET_ITEMS, TIER_LABEL, type MarketItem, type MarketTier } from '../../lib/marketItems'
 import { callNotifyFunction } from '../../lib/notifyEdge'
 import { getFileExtension, uploadAndGetPublicUrl } from '../../lib/storage'
+import { fmtDateTimeLong } from '../../lib/dates'
 
 type PurchaseRow = {
   id: string
@@ -22,10 +23,6 @@ type PurchaseRow = {
 }
 
 const TIERS: MarketTier[] = ['frequent', 'occasional', 'rare']
-
-function fmtDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })
-}
 
 async function notifyMarket(type: 'item_purchased' | 'item_fulfilled', excludeUserId: string, actorName: string | null, itemLabel: string) {
   await callNotifyFunction('notify-market', { type, exclude_user_id: excludeUserId, actor_name: actorName, item_label: itemLabel })
@@ -341,7 +338,7 @@ export function Marche({ user }: { user: User }) {
                             <p className="text-pink-400 dark:text-pink-400 text-xs">
                               ✅ Acheté par {p.buyer_name ?? 'inconnu'}
                             </p>
-                            {p.completed_at && <p className="text-pink-300 dark:text-pink-500 text-xs">{fmtDate(p.completed_at)}</p>}
+                            {p.completed_at && <p className="text-pink-300 dark:text-pink-500 text-xs">{fmtDateTimeLong(p.completed_at)}</p>}
                           </div>
                         </div>
                       ))}

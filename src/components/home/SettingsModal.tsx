@@ -5,6 +5,7 @@ import { X, Bell, BellOff, Moon, Sun, Plus, Trash2 } from 'lucide-react'
 import { registerPush, unregisterPush, getPushEnabled } from '../../lib/pushNotifications'
 import { useTheme } from '../../lib/useTheme'
 import { supabase } from '../../lib/supabase'
+import { fmtDateShort } from '../../lib/dates'
 
 type Props = {
   open: boolean
@@ -370,7 +371,7 @@ export function SettingsModal({ open, onClose, user }: Props) {
                         <div className="flex-1 min-w-0">
                           <p className="text-sm text-pink-700 dark:text-pink-200 break-words">{f.description}</p>
                           <p className="text-xs text-pink-300 dark:text-pink-400 mt-0.5">
-                            {f.author_name ?? 'inconnu'} · {new Date(f.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                            {f.author_name ?? 'inconnu'} · {fmtDateShort(f.created_at)}
                           </p>
                         </div>
                         <button
