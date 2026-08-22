@@ -7,6 +7,7 @@ import { THEMES } from '../../lib/photoGameThemes'
 import { getRoundBoundaries } from '../../lib/photoGameSchedule'
 import { awardCoins } from '../../lib/wallet'
 import { callNotifyFunction } from '../../lib/notifyEdge'
+import { getFileExtension, uploadAndGetPublicUrl } from '../../lib/storage'
 
 const PARTICIPATION_REWARD = 50
 
@@ -109,11 +110,10 @@ export function PhotoGame({ user }: { user: User }) {
     if (!file || !game || uploading) return
     setUploading(true)
     try {
-      const ext = file.name.split('.').pop() || 'jpg'
+      const ext = getFileExtension(file)
       const path = `${game.theme_index}/${user.id}/${Date.now()}.${ext}`
-      const { error: upErr } = await supabase.storage.from('photo-game').upload(path, file, { upsert: true })
+      const { publicUrl, error: upErr } = await uploadAndGetPublicUrl('photo-game', path, file, { upsert: true })
       if (upErr) throw upErr
-      const { data: { publicUrl } } = supabase.storage.from('photo-game').getPublicUrl(path)
 
       const { data: g2 } = await supabase.from('photo_game')
         .select('photo_1_user_id, photo_2_user_id').eq('id', 1).single()

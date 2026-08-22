@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { X, Trash2, Send, Eraser } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../../lib/supabase'
+import { uploadAndGetPublicUrl } from '../../lib/storage'
 
 const FIXED_COLORS: { hex: string; label: string }[] = [
   { hex: '#1f2937', label: 'Noir' },
@@ -136,11 +137,8 @@ export function CroustiArt({ user, compact = false }: { user: User; compact?: bo
     canvas.toBlob(async (blob) => {
       if (!blob) { setIsSending(false); return }
       const path = `${user.id}/${Date.now()}.png`
-      const { error } = await supabase.storage
-        .from('artworks')
-        .upload(path, blob, { contentType: 'image/png' })
+      const { publicUrl, error } = await uploadAndGetPublicUrl('artworks', path, blob, { contentType: 'image/png' })
       if (!error) {
-        const { data: { publicUrl } } = supabase.storage.from('artworks').getPublicUrl(path)
         await supabase.from('artworks').insert({
           sender_id: user.id,
           sender_name: senderName,
