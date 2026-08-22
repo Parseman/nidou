@@ -5,6 +5,7 @@ import type { User } from '@supabase/supabase-js'
 import { supabase } from '../../lib/supabase'
 import { awardCoins } from '../../lib/wallet'
 import { MARKET_ITEMS, TIER_LABEL, type MarketItem, type MarketTier } from '../../lib/marketItems'
+import { callNotifyFunction } from '../../lib/notifyEdge'
 
 type PurchaseRow = {
   id: string
@@ -26,18 +27,7 @@ function fmtDate(iso: string): string {
 }
 
 async function notifyMarket(type: 'item_purchased' | 'item_fulfilled', excludeUserId: string, actorName: string | null, itemLabel: string) {
-  try {
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) return
-    await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/notify-market`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.access_token}`,
-      },
-      body: JSON.stringify({ type, exclude_user_id: excludeUserId, actor_name: actorName, item_label: itemLabel }),
-    })
-  } catch { /* non-bloquant */ }
+  await callNotifyFunction('notify-market', { type, exclude_user_id: excludeUserId, actor_name: actorName, item_label: itemLabel })
 }
 
 export function Marche({ user }: { user: User }) {

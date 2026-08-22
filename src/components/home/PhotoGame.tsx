@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabase'
 import { THEMES } from '../../lib/photoGameThemes'
 import { getRoundBoundaries } from '../../lib/photoGameSchedule'
 import { awardCoins } from '../../lib/wallet'
+import { callNotifyFunction } from '../../lib/notifyEdge'
 
 const PARTICIPATION_REWARD = 50
 
@@ -182,18 +183,7 @@ export function PhotoGame({ user }: { user: User }) {
     type: string,
     opts: { exclude_user_id?: string | null; target_user_id?: string | null; actor_name?: string; liked?: boolean } = {},
   ) {
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) return
-      await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/notify-photo-game`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({ type, ...opts }),
-      })
-    } catch { /* non-bloquant */ }
+    await callNotifyFunction('notify-photo-game', { type, ...opts })
   }
 
   async function openHistory() {

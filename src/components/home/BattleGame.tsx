@@ -7,6 +7,7 @@ import { X } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../../lib/supabase'
 import { awardCoins } from '../../lib/wallet'
+import { callNotifyFunction } from '../../lib/notifyEdge'
 
 const SWORD_ATTACK_REWARD = 10
 
@@ -256,15 +257,7 @@ export function BattleGame({ user }: { user: User }) {
   }
 
   async function sendNotif(type: string, payload: Record<string, unknown>) {
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) return
-      await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/notify-battle`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-        body: JSON.stringify({ type, ...payload }),
-      })
-    } catch { /* non-bloquant */ }
+    await callNotifyFunction('notify-battle', { type, ...payload })
   }
 
   async function claimItem() {
