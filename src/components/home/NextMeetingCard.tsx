@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Calendar, Pencil, Check, X } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import { callNotifyFunction } from '../../lib/notifyEdge'
 
 type Settings = {
   next_meeting_date: string | null
@@ -104,18 +105,7 @@ export function NextMeetingCard() {
   }
 
   async function sendNotif(days: number) {
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) return
-      await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/notify-meeting-date`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({ days }),
-      })
-    } catch { /* non-bloquant */ }
+    await callNotifyFunction('notify-meeting-date', { days })
   }
 
   if (data === null) return null
