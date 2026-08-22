@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../../lib/supabase'
+import { parseDate, todayISODate } from '../../lib/dates'
 
 type TripRow = {
   user_id: string
@@ -9,19 +10,10 @@ type TripRow = {
   arrival_date: string
 }
 
-function parseDate(s: string): Date {
-  const [y, m, d] = s.split('-').map(Number)
-  return new Date(y, m - 1, d)
-}
-
-function todayStr(): string {
-  return new Date().toLocaleDateString('sv-SE')
-}
-
 function progressPct(departure: string, arrival: string): number {
   const dep = parseDate(departure).getTime()
   const arr = parseDate(arrival).getTime()
-  const t = parseDate(todayStr()).getTime()
+  const t = parseDate(todayISODate()).getTime()
   const total = arr - dep
   if (total <= 0) return 100
   return Math.min(100, Math.max(0, ((t - dep) / total) * 100))

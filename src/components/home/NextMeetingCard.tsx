@@ -3,21 +3,11 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Calendar, Pencil, Check, X } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { callNotifyFunction } from '../../lib/notifyEdge'
+import { parseDate, today, formatDateWeekdayLong, formatDateShort } from '../../lib/dates'
 
 type Settings = {
   next_meeting_date: string | null
   last_meeting_date: string | null
-}
-
-function parseDate(s: string): Date {
-  const [y, m, d] = s.split('-').map(Number)
-  return new Date(y, m - 1, d)
-}
-
-function today(): Date {
-  const d = new Date()
-  d.setHours(0, 0, 0, 0)
-  return d
 }
 
 function daysRemaining(next: string): number {
@@ -35,16 +25,11 @@ function progressPct(last: string | null, next: string): number {
 }
 
 function fmtLong(s: string): string {
-  return parseDate(s).toLocaleDateString('fr-FR', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  })
+  return formatDateWeekdayLong(parseDate(s))
 }
 
 function fmtShort(s: string): string {
-  return parseDate(s).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+  return formatDateShort(parseDate(s))
 }
 
 export function NextMeetingCard() {

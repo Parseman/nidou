@@ -8,6 +8,7 @@ import { getRoundBoundaries } from '../../lib/photoGameSchedule'
 import { awardCoins } from '../../lib/wallet'
 import { callNotifyFunction } from '../../lib/notifyEdge'
 import { getFileExtension, uploadAndGetPublicUrl } from '../../lib/storage'
+import { fmtDateShort } from '../../lib/dates'
 
 const PARTICIPATION_REWARD = 50
 
@@ -487,7 +488,7 @@ export function PhotoGame({ user }: { user: User }) {
                             {THEMES[h.theme_index % THEMES.length]}
                           </p>
                           <span className="shrink-0 text-xs text-pink-400 dark:text-pink-500">
-                            {new Date(h.started_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                            {fmtDateShort(h.started_at)}
                           </span>
                         </div>
                         <div className="grid grid-cols-2 gap-2">

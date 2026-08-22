@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { MessageCircle, Send, X } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../../lib/supabase'
+import { fmtRelativeOrShort } from '../../lib/dates'
 
 type Message = {
   id: string
@@ -13,17 +14,6 @@ type Message = {
 }
 
 const LS_LAST_SEEN = 'nidou_messages_last_seen'
-
-function fmtTime(iso: string): string {
-  const d = new Date(iso)
-  const now = new Date()
-  const isToday = d.toDateString() === now.toDateString()
-  const yesterday = new Date(now)
-  yesterday.setDate(yesterday.getDate() - 1)
-  if (isToday) return d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
-  if (d.toDateString() === yesterday.toDateString()) return 'Hier'
-  return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
-}
 
 export function CroustiMessage({ user }: { user: User }) {
   const [messages, setMessages] = useState<Message[]>([])
@@ -204,7 +194,7 @@ export function CroustiMessage({ user }: { user: User }) {
                         >
                           {msg.content}
                         </div>
-                        <span className="text-pink-300 dark:text-pink-400 text-xs px-1">{fmtTime(msg.created_at)}</span>
+                        <span className="text-pink-300 dark:text-pink-400 text-xs px-1">{fmtRelativeOrShort(msg.created_at)}</span>
                       </motion.div>
                     )
                   })
