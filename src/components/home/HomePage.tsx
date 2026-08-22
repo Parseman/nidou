@@ -7,6 +7,7 @@ import { CroustiMessage } from './CroustiMessage'
 import { DefiLundi } from './DefiLundi'
 import { SettingsModal } from './SettingsModal'
 import { PhoneModal } from './PhoneModal'
+import { ConfirmModal } from './ConfirmModal'
 import { CoinPot } from './CoinPot'
 import { useStreak } from '../../lib/useStreak'
 import { DistanceCard } from './DistanceCard'
@@ -22,6 +23,7 @@ export function HomePage({ user, onSignOut }: Props) {
   const displayName = user.user_metadata?.first_name ?? user.email?.split('@')[0] ?? 'toi'
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [phoneOpen, setPhoneOpen] = useState(false)
+  const [confirmSignOutOpen, setConfirmSignOutOpen] = useState(false)
   const streak = useStreak(user)
 
   return (
@@ -73,7 +75,7 @@ export function HomePage({ user, onSignOut }: Props) {
             </button>
             <div className="w-px h-4 bg-pink-100 dark:bg-pink-900" aria-hidden />
             <button
-              onClick={onSignOut}
+              onClick={() => setConfirmSignOutOpen(true)}
               className="flex items-center gap-1.5 text-pink-400 dark:text-pink-300 hover:text-pink-600 dark:hover:text-pink-100 transition-colors cursor-pointer text-sm font-medium"
               aria-label="Se déconnecter"
             >
@@ -154,6 +156,17 @@ export function HomePage({ user, onSignOut }: Props) {
       <CroustiMessage user={user} />
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} user={user} />
       <PhoneModal open={phoneOpen} onClose={() => setPhoneOpen(false)} user={user} />
+      <ConfirmModal
+        open={confirmSignOutOpen}
+        title="Se déconnecter ?"
+        message="Tu devras te reconnecter pour retrouver ton espace."
+        confirmLabel="Se déconnecter"
+        onConfirm={() => {
+          setConfirmSignOutOpen(false)
+          onSignOut()
+        }}
+        onCancel={() => setConfirmSignOutOpen(false)}
+      />
     </div>
   )
 }
