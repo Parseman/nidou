@@ -4,6 +4,7 @@ import { Calendar, Pencil, Check, X } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { callNotifyFunction } from '../../lib/notifyEdge'
 import { parseDate, today, formatDateWeekdayLong, formatDateShort } from '../../lib/dates'
+import { DatePicker } from './DatePicker'
 
 type Settings = {
   next_meeting_date: string | null
@@ -192,12 +193,10 @@ export function NextMeetingCard() {
               <label className="block text-xs font-semibold text-pink-600 mb-1.5">
                 Dernière fois qu'on s'est vus
               </label>
-              <input
-                type="date"
+              <DatePicker
                 value={lastDate}
                 max={todayStr}
-                onChange={(e) => setLastDate(e.target.value)}
-                className="input-field text-sm"
+                onChange={setLastDate}
               />
             </div>
 
@@ -205,12 +204,10 @@ export function NextMeetingCard() {
               <label className="block text-xs font-semibold text-pink-600 mb-1.5">
                 Prochaine fois qu'on se voit
               </label>
-              <input
-                type="date"
+              <DatePicker
                 value={nextDate}
                 min={todayStr}
-                onChange={(e) => setNextDate(e.target.value)}
-                className="input-field text-sm"
+                onChange={setNextDate}
               />
             </div>
 
