@@ -1,18 +1,7 @@
-import webpush from 'npm:web-push@3'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createSupabaseAdmin } from '../_shared/supabaseAdmin.ts'
+import { sendPushToAll } from '../_shared/webpush.ts'
 
-webpush.setVapidDetails(
-  'mailto:contact@nidou.app',
-  Deno.env.get('VAPID_PUBLIC_KEY')!,
-  Deno.env.get('VAPID_PRIVATE_KEY')!,
-)
-
-const supabase = createClient(
-  Deno.env.get('SUPABASE_URL')!,
-  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-)
-
-type Sub = { subscription: webpush.PushSubscription }
+const supabase = createSupabaseAdmin()
 
 async function notifyAllExcept(excludeUserId: string, payload: object) {
   const { data: subs } = await supabase
@@ -20,9 +9,7 @@ async function notifyAllExcept(excludeUserId: string, payload: object) {
     .select('subscription')
     .neq('user_id', excludeUserId)
   if (!subs?.length) return
-  await Promise.allSettled(
-    (subs as Sub[]).map((row) => webpush.sendNotification(row.subscription, JSON.stringify(payload)))
-  )
+  await sendPushToAll(subs, payload)
 }
 
 async function notifyUser(userId: string, payload: object) {
@@ -31,9 +18,7 @@ async function notifyUser(userId: string, payload: object) {
     .select('subscription')
     .eq('user_id', userId)
   if (!subs?.length) return
-  await Promise.allSettled(
-    (subs as Sub[]).map((row) => webpush.sendNotification(row.subscription, JSON.stringify(payload)))
-  )
+  await sendPushToAll(subs, payload)
 }
 
 Deno.serve(async (req) => {

@@ -1,4 +1,4 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createSupabaseAdmin } from '../_shared/supabaseAdmin.ts'
 
 // ── Même logique de dégradation que le client ────────────────────────────────
 
@@ -29,10 +29,7 @@ function calcStats(row: PetRow) {
 // ── Handler ───────────────────────────────────────────────────────────────────
 
 Deno.serve(async () => {
-  const supabase = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-  )
+  const supabase = createSupabaseAdmin()
   const webhookUrl = Deno.env.get('DISCORD_WEBHOOK_URL')!
 
   // Lecture du pet

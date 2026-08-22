@@ -1,16 +1,7 @@
-import webpush from 'npm:web-push@3'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createSupabaseAdmin } from '../_shared/supabaseAdmin.ts'
+import { sendPushToAll } from '../_shared/webpush.ts'
 
-webpush.setVapidDetails(
-  'mailto:contact@nidou.app',
-  Deno.env.get('VAPID_PUBLIC_KEY')!,
-  Deno.env.get('VAPID_PRIVATE_KEY')!,
-)
-
-const supabase = createClient(
-  Deno.env.get('SUPABASE_URL')!,
-  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-)
+const supabase = createSupabaseAdmin()
 
 // Calendrier fixe : le tour démarre jeudi 00h00 Paris et se termine (deadline
 // upload/vote) mardi 23h59 Paris. Le mercredi est un jour mort (verrouillé,
@@ -81,14 +72,7 @@ Deno.serve(async () => {
   const targets = (subs ?? []).filter((s) => missingUserIds.includes(s.user_id))
   if (!targets.length) return new Response('Aucun destinataire', { status: 200 })
 
-  await Promise.allSettled(
-    targets.map(({ subscription }) =>
-      webpush.sendNotification(
-        subscription,
-        JSON.stringify({ title, body: notifBody, tag }),
-      ).catch(() => null)
-    ),
-  )
+  await sendPushToAll(targets, { title, body: notifBody, tag })
 
   return new Response(`Rappel envoyé (${targets.length})`, { status: 200 })
 })

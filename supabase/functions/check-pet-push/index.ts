@@ -1,16 +1,7 @@
-import webpush from 'npm:web-push@3'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createSupabaseAdmin } from '../_shared/supabaseAdmin.ts'
+import { sendPushToAll } from '../_shared/webpush.ts'
 
-webpush.setVapidDetails(
-  'mailto:contact@nidou.app',
-  Deno.env.get('VAPID_PUBLIC_KEY')!,
-  Deno.env.get('VAPID_PRIVATE_KEY')!,
-)
-
-const supabase = createClient(
-  Deno.env.get('SUPABASE_URL')!,
-  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-)
+const supabase = createSupabaseAdmin()
 
 const DECAY_PER_HOUR = { hunger: 3, hygiene: 2, happiness: 1.5 }
 const COOLDOWN_H = 3
@@ -52,15 +43,11 @@ Deno.serve(async () => {
 
   if (!subs?.length) return new Response('Aucun abonné', { status: 200 })
 
-  const payload = JSON.stringify({
+  await sendPushToAll(subs, {
     title: '😿 Nidou a besoin de vous !',
     body: `Son bien-être global est à ${Math.round(stats.overall)}/100. Venez en prendre soin !`,
     tag: 'pet-sad',
   })
-
-  await Promise.allSettled(
-    subs.map((row) => webpush.sendNotification(row.subscription, payload))
-  )
 
   await supabase
     .from('pet')

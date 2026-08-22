@@ -1,16 +1,7 @@
-import webpush from 'npm:web-push@3'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createSupabaseAdmin } from '../_shared/supabaseAdmin.ts'
+import { sendPushToAll } from '../_shared/webpush.ts'
 
-webpush.setVapidDetails(
-  'mailto:contact@nidou.app',
-  Deno.env.get('VAPID_PUBLIC_KEY')!,
-  Deno.env.get('VAPID_PRIVATE_KEY')!,
-)
-
-const supabase = createClient(
-  Deno.env.get('SUPABASE_URL')!,
-  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-)
+const supabase = createSupabaseAdmin()
 
 Deno.serve(async () => {
   // Date du jour en heure de Paris (format YYYY-MM-DD)
@@ -42,17 +33,12 @@ Deno.serve(async () => {
     subs.map(({ subscription, user_id }) => {
       const row = streaks.find((s) => s.user_id === user_id)
       const n = row?.streak ?? 1
-      return webpush
-        .sendNotification(
-          subscription,
-          JSON.stringify({
-            title: '🔥 Ta flamme est en danger !',
-            body: `Connecte-toi pour ne pas perdre ta série de ${n} jour${n > 1 ? 's' : ''} !`,
-            tag: 'streak-reminder',
-            renotify: true,
-          }),
-        )
-        .catch(() => null)
+      return sendPushToAll([{ subscription }], {
+        title: '🔥 Ta flamme est en danger !',
+        body: `Connecte-toi pour ne pas perdre ta série de ${n} jour${n > 1 ? 's' : ''} !`,
+        tag: 'streak-reminder',
+        renotify: true,
+      })
     }),
   )
 

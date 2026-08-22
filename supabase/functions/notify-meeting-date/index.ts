@@ -1,25 +1,11 @@
-import webpush from 'npm:web-push@3'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createSupabaseAdmin } from '../_shared/supabaseAdmin.ts'
+import { sendPushToAll } from '../_shared/webpush.ts'
+import { corsHeaders } from '../_shared/cors.ts'
 
-webpush.setVapidDetails(
-  'mailto:contact@nidou.app',
-  Deno.env.get('VAPID_PUBLIC_KEY')!,
-  Deno.env.get('VAPID_PRIVATE_KEY')!,
-)
-
-const supabase = createClient(
-  Deno.env.get('SUPABASE_URL')!,
-  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-)
+const supabase = createSupabaseAdmin()
 
 type Body = {
   days?: number | null
-}
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
 Deno.serve(async (req) => {
@@ -45,14 +31,7 @@ Deno.serve(async (req) => {
 
   if (!subs?.length) return new Response('Aucun destinataire', { status: 200, headers: corsHeaders })
 
-  await Promise.allSettled(
-    subs.map(({ subscription }) =>
-      webpush.sendNotification(
-        subscription,
-        JSON.stringify({ title, body: notifBody, tag: 'meeting-date' }),
-      ).catch(() => null)
-    ),
-  )
+  await sendPushToAll(subs, { title, body: notifBody, tag: 'meeting-date' })
 
   return new Response(`"date_updated" envoyé (${subs.length})`, { status: 200, headers: corsHeaders })
 })
