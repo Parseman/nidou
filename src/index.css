@@ -45,13 +45,18 @@
   }
 }
 
-/* Les <input type="date"> natifs ont une largeur de contenu minimale (chiffres
-   jj/mm/aaaa + icône calendrier) qui peut dépasser leur boîte CSS sur certains
-   navigateurs mobiles (Chrome Android, Safari iOS), surtout dans un conteneur
-   flex où les enfants ne rétrécissent pas sous leur min-content par défaut. */
+/* Safari iOS applique un style natif (-webkit-appearance) aux <input
+   type="date"> qui leur fait ignorer la largeur CSS imposée (width/max-width),
+   quel que soit le layout autour (flex, colonne...) : le champ se dimensionne
+   selon la valeur affichée (ex: "31 janv. 2027" en format long une fois
+   rempli) et déborde de son conteneur. On désactive ce style natif pour que
+   le champ respecte notre CSS ; le picker de date reste fonctionnel au clic,
+   seul l'habillage visuel change (déjà pris en charge par .input-field). */
 input[type='date'] {
   min-width: 0;
   max-width: 100%;
+  -webkit-appearance: none;
+  appearance: none;
 }
 input[type='date']::-webkit-calendar-picker-indicator {
   margin-left: auto;
