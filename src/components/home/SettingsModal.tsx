@@ -208,7 +208,7 @@ export function SettingsModal({ open, onClose, user }: Props) {
                   Ton trajet
                 </p>
                 <div className="bg-white/40 dark:bg-purple-950/40 rounded-xl p-4 space-y-3">
-                  <div className="flex gap-3">
+                  <div className="flex flex-col sm:flex-row gap-3">
                     <div className="flex-1 min-w-0">
                       <label className="block text-xs font-semibold text-pink-600 dark:text-pink-300 mb-1">
                         Départ
