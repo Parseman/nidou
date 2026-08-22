@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabase'
 import { awardCoins } from '../../lib/wallet'
 import { MARKET_ITEMS, TIER_LABEL, type MarketItem, type MarketTier } from '../../lib/marketItems'
 import { callNotifyFunction } from '../../lib/notifyEdge'
+import { getFileExtension, uploadAndGetPublicUrl } from '../../lib/storage'
 
 type PurchaseRow = {
   id: string
@@ -115,11 +116,10 @@ export function Marche({ user }: { user: User }) {
     setFulfillingId(purchase.id)
     let proofUrl: string | null = null
     if (selectedFile && uploadFor === purchase.id) {
-      const ext = selectedFile.name.split('.').pop() || 'jpg'
+      const ext = getFileExtension(selectedFile)
       const path = `${purchase.id}/${Date.now()}.${ext}`
-      const { error } = await supabase.storage.from('market').upload(path, selectedFile)
+      const { publicUrl, error } = await uploadAndGetPublicUrl('market', path, selectedFile)
       if (!error) {
-        const { data: { publicUrl } } = supabase.storage.from('market').getPublicUrl(path)
         proofUrl = publicUrl
       }
     }

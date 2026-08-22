@@ -4,6 +4,7 @@ import { Trophy, X, Plus, Camera, Check, ThumbsUp, ThumbsDown } from 'lucide-rea
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../../lib/supabase'
 import { awardCoins } from '../../lib/wallet'
+import { getFileExtension, uploadAndGetPublicUrl } from '../../lib/storage'
 
 type Difficulty = 'easy' | 'medium' | 'hard' | 'legendary'
 
@@ -207,11 +208,10 @@ export function DefiLundi({ user }: { user: User }) {
   const uploadProof = async (challenge: Challenge) => {
     if (!selectedFile || uploading) return
     setUploading(true)
-    const ext = selectedFile.name.split('.').pop() ?? 'jpg'
+    const ext = getFileExtension(selectedFile)
     const path = `${challenge.id}/${Date.now()}.${ext}`
-    const { error } = await supabase.storage.from('challenges').upload(path, selectedFile)
+    const { publicUrl, error } = await uploadAndGetPublicUrl('challenges', path, selectedFile)
     if (!error) {
-      const { data: { publicUrl } } = supabase.storage.from('challenges').getPublicUrl(path)
       await supabase.from('challenges').update({
         status: 'proof_submitted',
         proof_url: publicUrl,
