@@ -1,18 +1,8 @@
-import webpush from 'npm:web-push@3'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createSupabaseAdmin } from '../_shared/supabaseAdmin.ts'
+import { sendPushToAll } from '../_shared/webpush.ts'
 
-webpush.setVapidDetails(
-  'mailto:contact@nidou.app',
-  Deno.env.get('VAPID_PUBLIC_KEY')!,
-  Deno.env.get('VAPID_PRIVATE_KEY')!,
-)
+const supabase = createSupabaseAdmin()
 
-const supabase = createClient(
-  Deno.env.get('SUPABASE_URL')!,
-  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-)
-
-type Sub = { subscription: webpush.PushSubscription; user_id: string }
 type Challenge = { id: string; title: string; status: string; created_by: string }
 
 Deno.serve(async () => {
@@ -30,15 +20,11 @@ Deno.serve(async () => {
     if (!isCreationWindow) return new Response('Aucun défi en cours', { status: 200 })
     const { data: subs } = await supabase.from('push_subscriptions').select('subscription')
     if (subs?.length) {
-      await Promise.allSettled(
-        (subs as { subscription: webpush.PushSubscription }[]).map(({ subscription }) =>
-          webpush.sendNotification(subscription, JSON.stringify({
-            title: '🏆 Pas de défi cette semaine !',
-            body: 'Lancez un défi du début de semaine pour pimenter les choses ✨',
-            tag: 'no-challenge-reminder',
-          })).catch(() => null)
-        )
-      )
+      await sendPushToAll(subs, {
+        title: '🏆 Pas de défi cette semaine !',
+        body: 'Lancez un défi du début de semaine pour pimenter les choses ✨',
+        tag: 'no-challenge-reminder',
+      })
     }
     return new Response('Rappel no-challenge envoyé', { status: 200 })
   }
@@ -53,7 +39,7 @@ Deno.serve(async () => {
 
   const results: Promise<unknown>[] = []
 
-  for (const sub of subs as Sub[]) {
+  for (const sub of subs) {
     const userId = sub.user_id
 
     // Défis que cet utilisateur doit relever (pending, il n'est pas le créateur)
@@ -84,9 +70,7 @@ Deno.serve(async () => {
       body = toValidate.map((c) => `• ${c.title}`).join('\n')
     }
 
-    results.push(
-      webpush.sendNotification(sub.subscription, JSON.stringify({ title, body, tag: 'reminder' }))
-    )
+    results.push(sendPushToAll([sub], { title, body, tag: 'reminder' }))
   }
 
   await Promise.allSettled(results)
