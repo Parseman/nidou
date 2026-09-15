@@ -12,6 +12,7 @@ import { CoinPot } from './CoinPot'
 import { useStreak } from '../../lib/useStreak'
 import { DistanceCard } from './DistanceCard'
 import { TripProgress } from './TripProgress'
+import { StatsBoard } from './StatsBoard'
 
 
 type Props = {
@@ -117,6 +118,7 @@ export function HomePage({ user, onSignOut }: Props) {
             <DefiLundi user={user} />
             <CoinPot user={user} />
             <DistanceCard user={user} />
+            <StatsBoard user={user} />
           </div>
         </section>
 
